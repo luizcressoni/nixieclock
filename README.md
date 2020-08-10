@@ -17,6 +17,8 @@
 <p style="text-align: center;"><img src="https://github.com/luizcressoni/nixieclock/blob/master/resources/IMG_20190615_114315.jpg?raw=true" alt="" width="309" height="412" />&nbsp;&nbsp;<img src="https://github.com/luizcressoni/nixieclock/blob/master/resources/IMG_20190615_114306.jpg?raw=true" alt="" width="309" height="412" /><br /><em>Antes e depois do polimento dos detalhes em lat&atilde;o</em></p>
 <p style="text-align: center;"><img src="https://github.com/luizcressoni/nixieclock/blob/master/resources/IMG_20190615_144834.jpg?raw=true" alt="" width="302" height="227" />&nbsp;&nbsp;<img src="https://github.com/luizcressoni/nixieclock/blob/master/resources/IMG_20190615_161908.jpg?raw=true" alt="" width="312" height="234" /><br /><em>Fura&ccedil;&atilde;o para as v&aacute;lvulas</em></p>
 <p style="text-align: center;">&nbsp;</p>
+<p>No wiki existem arquivos sobre o hardware e software.&nbsp;&nbsp;</p>
+<div class="separator" data-original-attrs="{&quot;style&quot;:&quot;&quot;}">&nbsp;</div>
 <p style="text-align: center;">&nbsp;</p>
 <p style="text-align: center;">&nbsp;</p>
 <p>&nbsp;</p>
