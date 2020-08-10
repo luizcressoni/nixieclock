@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<nixie>
+    <wifi>
+        <!-- <ssid name="Cressoni_Wifi" password="1utch0n3t!" country="BR"/> -->
+        <ssid name="NEOCORTEX" password="19*35475263" country="BR"/>
+        <ip value="dhcp"/>
+    </wifi>
+
+    <clock_settings>
+        <timezone value="-3" dst="0"/>
+        <format time="24" date="ddmmaa"/>
+        <ntp server="0.br.pool.ntp.org"/>
+        <ntp server="1.br.pool.ntp.org"/>
+        <ntp server="2.br.pool.ntp.org"/>
+        <ntp server="3.br.pool.ntp.org"/>
+    </clock_settings>
+
+    <weather appid="f0725554f38ce0ce92bd567b2787e03e" units="metric" updateIntervalMinutes="60">
+        <!-- Araras SP Brasil -->
+        <location lat="-22.35694" long="-47.38416"/>
+    </weather>
+
+    <hardware>
+        <vu min="23" max="62"/>
+        <rgb max="255" threadEnable="1"/>
+        <brightness min="100" max="0" threadEnable="0"/>
+        <rtc enable="0"/>
+    </hardware>
+
+    <face_detection save_jpg="true">
+        <crop x="60" y="0" width="420" height="230"/>
+        <face_size min="50" max="90"/>
+        <brightness timeoutseconds="30"/>
+        <!--
+        <cascade file="/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml"/>
+        -->
+        <cascade file="/home/pi/haarcascade_frontalface_alt.xml"/>
+        <!--
+        <nestedcascade file="/usr/local/share/opencv4/haarcascades/haarcascade_eye_tree_eyeglasses.xml"/>
+        -->
+        <off>
+            <rgb value="255,0,50" modulation="sinusoidal" period="4000"/>
+            <brightness value="0"/>
+        </off>
+        <on>
+            <rgb value="0,0,0" modulation="none"/>
+            <brightness value="100"/>
+        </on>
+    </face_detection>
+
+    <rgb>
+        <temperature value="0" color="0,255,255"/>
+        <temperature value="40" color="255,0,0"/>
+    </rgb>
+
+    <event type="boot" delay="20">
+<!--        <tube action="fixed" value="000000"/>  -->
+        <tube action="IP"/>
+        <bargraph modulation="sinusoidal" period="2000"/>
+        <rgb value="0,0,255"/>
+        <indicator value="off"/>
+        <brightness value="100"/>
+        <!--
+        <brightness modulation="sinusoidal" period="2000"/>
+        -->
+    </event>
+<!--
+    <event type="timechange" condition="mask" mask="172600">
+        <brightness value="0"/>
+	<rgb value="0,0,100"/>
+    </event>
+
+    <event type="timechange" condition="mask" mask="080000">
+        <brightness value="100"/>
+	<rgb value="0,0,0"/>
+    </event>
+-->
+    <event type="timechange" condition="mask" mask="xxxx25" lock="1">
+        <tube action="showdate" anim="flip" delay="100"/>
+        <bargraph action="showweekday"/>
+        <!--<rgb value="0,0,0"/> -->
+        <indicator value="day"/>
+    </event>
+
+    <event type="timechange" condition="mask" mask="xxxx30" lock="0">
+        <tube action="showtime" anim="flip" delay="100"/>
+        <bargraph action="showtemperature"/>
+        <!--<rgb value="0,0,0"/> -->
+        <indicator value="temp"/>
+    </event>
+
+    <event type="timechange" condition="hour">
+        <tube action="showtime" anim="flip" delay="150"/>
+        <bargraph action="showtemperature"/>
+        <!--<rgb value="0,0,0"/> -->
+        <indicator value="temp"/>
+    </event>
+
+    <event type="timechange" condition="minute">
+        <tube action="showtime" anim="flip" delay="30"/>
+        <bargraph action="showtemperature"/>
+        <!--<rgb value="0,0,0"/> -->
+        <indicator value="temp"/>
+    </event>
+
+    <event type="timechange" condition="second">
+        <tube action="showtime"/>
+        <bargraph action="showtemperature"/>
+        <!--<rgb value="0,0,0"/> -->
+        <indicator value="temp"/>
+    </event>
+</nixie>
