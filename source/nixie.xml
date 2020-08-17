@@ -1,8 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <nixie>
     <wifi>
-        <!-- <ssid name="Cressoni_Wifi" password="1utch0n3t!" country="BR"/> -->
-        <ssid name="NEOCORTEX" password="19*35475263" country="BR"/>
+        <ssid name="PUT_YOUR_WIFI_SSID" password="PUT_YOUR_WIFI_PASSWORD" country="BR"/>
         <ip value="dhcp"/>
     </wifi>
 
