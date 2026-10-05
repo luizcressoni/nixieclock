@@ -1,0 +1,14 @@
+[Unit]
+Description=Verifica SSID e cria arquivo em /tmp se disponível
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/check_ssid.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/check_wifi.log
+StandardError=append:/var/log/check_wifi.err
+User=root
+
+[Install]
+WantedBy=multi-user.target

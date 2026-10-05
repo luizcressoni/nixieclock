@@ -1,0 +1,5 @@
+/build/
+/rpibuild/
+/docs
+/cmake-build-debug
+/dockerbuild/

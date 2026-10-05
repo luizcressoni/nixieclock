@@ -1,0 +1,135 @@
+(ExpressProject ""
+  (ProjectVersion "19981106")
+  (ProjectType "PCB")
+  (Folder "Design Resources"
+    (Folder "Library")
+    (File ".\nixie.dsn"
+      (Type "Schematic Design"))
+    (BuildFileAddedOrDeleted "x")
+    (CompileFileAddedOrDeleted "x")
+    (Netlist_TAB "5")
+    (LAYOUT_Netlist_File "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.MNL")
+    (LAYOUT_PCB_Footprint "{PCB Footprint}")
+    (LAYOUT_Run_ECO "FALSE")
+    (LAYOUT_Units "0")
+    (ANNOTATE_Scope "0")
+    (ANNOTATE_Mode "1")
+    (ANNOTATE_Action "0")
+    (ANNOTATE_Reset_References_to_1 "FALSE")
+    (ANNOTATE_No_Page_Number_Change "FALSE")
+    (ANNOTATE_Property_Combine "{Value}{Source Package}")
+    (GATE_&_PIN_SWAP_Scope "0")
+    (GATE_&_PIN_SWAP_File_Name
+       "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.SWP")
+    (NoModify))
+  (Folder "Outputs"
+    (File ".\nixie.mnl"
+      (Type "Report")))
+  (Folder "Referenced Projects")
+  (GlobalState
+    (FileView
+      (Path "Design Resources")
+      (Path "Design Resources"
+         "z:\desenvolvimento\nixie_clock\hardware\nixie.dsn")
+      (Path "Design Resources"
+         "z:\desenvolvimento\nixie_clock\hardware\nixie.dsn" "SCHEMATIC1")
+      (Path "Outputs")
+      (Select "Design Resources"
+         "z:\desenvolvimento\nixie_clock\hardware\nixie.dsn" "SCHEMATIC1"
+         "RASPI"))
+    (HierarchyView)
+    (Doc
+      (Type "COrCapturePMDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -4 -30 0 200 0 578"))
+      (Tab 0))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -4 -30 110 1806 145 757")
+        (Scroll "0 180")
+        (Zoom "104")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "PWMs"))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -1 -1 66 1762 87 679")
+        (Scroll "0 0")
+        (Zoom "100")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "Valvulas"))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -1 -1 132 1828 174 766")
+        (Scroll "0 0")
+        (Zoom "100")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "RTC"))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -1 -1 154 1850 203 795")
+        (Scroll "0 0")
+        (Zoom "100")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "RGB"))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -4 -30 -31 1665 186 778")
+        (Scroll "0 268")
+        (Zoom "200")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "RASPI"))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -4 -30 220 1916 290 882")
+        (Scroll "0 60")
+        (Zoom "100")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "MUX"))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -1 -1 176 1821 232 818")
+        (Scroll "0 0")
+        (Zoom "100")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "Fonte"))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -1 -1 198 1843 261 847")
+        (Scroll "0 0")
+        (Zoom "100")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "x_esp32"))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -1 -1 220 1865 290 876")
+        (Scroll "0 0")
+        (Zoom "100")
+        (Occurrence "/"))
+      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Schematic "SCHEMATIC1")
+      (Page "x_audio"))))

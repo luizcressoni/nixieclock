@@ -1,0 +1,13 @@
+[Unit]
+Description=Nixie Clock app
+#After=network.target systemd-timesyncd.service
+After=basic.target
+
+[Service]
+ExecStart=/home/pi/nixiepi/nixie
+WorkingDirectory=/home/pi/nixiepi
+Restart=on-failure
+
+
+[Install]
+WantedBy=multi-user.target

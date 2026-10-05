@@ -1,0 +1,45 @@
+{
+	"maps":	{
+		"latitude":	0.0,
+		"longitude":	0.0,
+		"apikey":	""
+	},
+	"wifi":	{
+		"ssid":	"",
+		"password":	""
+	},
+	"ntp":	{
+		"server_0":	"0.pool.ntp.org",
+		"server_1":	"1.pool.ntp.org",
+		"server_2":	"2.pool.ntp.org",
+		"server_3":	"3.pool.ntp.org"
+	},
+	"detection":	{
+		"model":	"both",
+		"threshold":	20,
+		"face_cascade":	"lbp_improved",
+		"face_scale_factor":	1.2,
+		"face_min_neighbors":	3,
+		"face_min_consecutive":	2,
+		"face_size_min":	45,
+		"face_size_max":	200,
+		"on_timeout":	90,
+		"fps":	15
+	},
+	"hardware":	{
+		"vu_min":	26,
+		"vu_max":	63,
+		"brightness":	100
+	},
+	"schedule":	{
+		"use_astro":	true,
+		"day_start":	7,
+		"day_end":	18,
+		"gate_half_hour":	true
+	},
+	"regen":	{
+		"enabled":	true,
+		"times":	["02:00", "03:00", "04:00"],
+		"cycles":	5
+	}
+}

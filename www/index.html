@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Digital Clock Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #header {
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            text-align: center;
+        }
+
+        #container {
+            display: flex;
+            flex: 1;
+        }
+
+        #left-menu {
+            background-color: #777;
+            color: #fff;
+            padding: 10px;
+            width: 200px;
+        }
+
+        #content {
+            flex: 1;
+            padding: 20px;
+        }
+        
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>Nixie Clock</h1>
+        Luiz Cressoni Filho - 2019
+    </div>
+    <div id="container">
+        <div id="left-menu">
+            Ajustes
+            <ul>
+                <li><a href="#" onclick="openPage('wifi')">Wi-Fi</a></li>
+                <li><a href="#" onclick="openPage('maps')">Localização</a></li>
+                <li><a href="#" onclick="openPage('ntp')">Servidores NTP</a></li>
+                <li><a href="#" onclick="openPage('detection')">Detecção</a></li>
+                <li><a href="#" onclick="openPage('valves')">Limites das válvulas </a></li>
+                <li><a href="#" onclick="openPage('images')">Fotos </a></li>
+                <li><a href="#" onclick="openPagetxt('logs')">Logs </a></li>
+                
+            </ul>
+        </div>
+        <div id="content">
+            <!-- Content will be loaded dynamically based on user selection -->
+            <img src="jpgs/clock.jpg" width="100%">
+        </div>
+    </div>
+
+    <script>
+    // Values come from the CGI, never from json/nixie.json: that file holds the Wi-Fi password
+    // and the weather key, and lighttpd refuses to serve it.
+    var CONFIG_URL = 'cgi-bin/nixie.cgi?get=config';
+
+    function openPagetxt(page) {
+        var htmlPromise = fetch(page + '.html').then(response => response.text());
+        var logPromise = fetch('logs/nixie.txt').then(response => response.text());
+        Promise.all([htmlPromise, logPromise])
+        .then(([content, data]) => {
+            document.getElementById('content').innerHTML = content;
+            document.getElementById('text').value = data;
+        })
+        .catch(error => console.error('Error loading content:', error));
+    }
+
+    // Walks "detection.blur" down the config object
+    function lookup(data, path) {
+        return path.split('.').reduce((node, key) => (node == null ? undefined : node[key]), data);
+    }
+
+    // Every input with a data-key gets its value from the config. Selects that stand for a
+    // boolean use the options "1" and "0".
+    function fillForms(root, data) {
+        root.querySelectorAll('[data-key]').forEach(el => {
+            var value = lookup(data, el.dataset.key);
+            if (value === undefined || value === null)
+                return;
+            if (typeof value === 'boolean')
+                value = value ? '1' : '0';
+            if (el.type === 'radio')
+                el.checked = (String(value) === el.value);
+            else
+                el.value = value;
+        });
+    }
+
+    // The NTP page picks the timezone from the list the system itself knows
+    function fillTimezones(root, data) {
+        var select = root.querySelector('#timezone');
+        if (!select)
+            return Promise.resolve();
+        return fetch('cgi-bin/nixie.cgi?get=timezones')
+            .then(response => response.json())
+            .then(zones => {
+                var current = lookup(data, 'ntp.timezone');
+                if (current && zones.indexOf(current) < 0)
+                    zones.unshift(current);
+                select.innerHTML = '';
+                zones.forEach(zone => select.add(new Option(zone, zone)));
+                select.value = current || '';
+            });
+    }
+
+    function openPage(page) {
+        var htmlPromise = fetch(page + '.html').then(response => response.text());
+        var configPromise = fetch(CONFIG_URL).then(response => response.json());
+
+        Promise.all([htmlPromise, configPromise])
+        .then(([content, data]) => {
+            var root = document.getElementById('content');
+            root.innerHTML = content;
+            fillForms(root, data);
+
+            // the stored key never comes back to the page, only whether there is one
+            var apikey = root.querySelector('#apikey');
+            if (apikey)
+                apikey.placeholder = lookup(data, 'maps.apikey_set')
+                    ? 'chave gravada; deixe em branco para manter'
+                    : 'sem chave: a previsão do tempo está desligada';
+
+            root.querySelectorAll('form').forEach(form => {
+                if (form.regen_count)
+                    showRegenTimes(form);
+            });
+            showFaceStatus(root, lookup(data, 'detection.status'));
+
+            return fillTimezones(root, data);
+        })
+        .catch(error => console.error('Error updating content:', error));
+    }
+
+    // What the camera reports it is really doing: the frame the driver delivers, the cascade's
+    // window and the handful of sizes the search tries. Settings that collide with any of these
+    // used to leave face detection on and finding nothing, in silence.
+    var CASCADE_NAMES = { lbp_improved: 'LBP melhorado', lbp: 'LBP', haar: 'Haar' };
+
+    function showFaceStatus(root, status) {
+        var box = root.querySelector('#face_status');
+        if (!box)
+            return;
+        box.classList.remove('warning');
+        if (!status) {
+            box.textContent = 'A câmera ainda não informou o que está usando. Ela informa ao ' +
+                'iniciar e cada vez que esta aba é salva; reabra a aba em alguns segundos.';
+            return;
+        }
+        var when = new Date(status.time * 1000).toLocaleTimeString().slice(0, 5);
+        var cascade = CASCADE_NAMES[status.cascade] || status.cascade;
+        if (status.state === 'off') {
+            box.textContent = 'Desde ' + when + ': detecção de rosto desligada, a câmera está só no movimento.';
+            return;
+        }
+        if (status.state === 'error') {
+            box.classList.add('warning');
+            box.textContent = 'Desde ' + when + ': a câmera não conseguiu carregar o detector ' + cascade +
+                ' (código 99 1 nas válvulas). Escolha outro detector e salve.';
+            return;
+        }
+        var sizes = status.sizes || [];
+        var text = 'Em uso desde ' + when + ': quadro ' + status.frame_width + 'x' + status.frame_height +
+            ', detector ' + cascade + ' (janela ' + status.window + ' px), procurando rostos de ' +
+            sizes[0] + ' a ' + sizes[sizes.length - 1] + ' px em ' + sizes.length +
+            (sizes.length === 1 ? ' tamanho' : ' tamanhos') + ': ' + sizes.join(', ') + '. Pedido: ' +
+            status.requested_min + ' a ' + status.requested_max + ' px.';
+        if (status.frame_width !== 320 || status.frame_height !== 200)
+            text += ' A câmera não entregou o quadro pedido (320x200).';
+        if (status.adjusted) {
+            box.classList.add('warning');
+            text += ' A faixa pedida não contém nenhum dos tamanhos que a busca testa, e a câmera ' +
+                'ampliou por conta própria. Ajuste o mínimo, o máximo ou o fator de escala.';
+        }
+        box.textContent = text;
+    }
+
+    // One time box per regeneration session. The extra boxes stay in the page, hidden, so lowering
+    // the count and raising it again does not lose what was typed; the CGI reads only the first ones.
+    function showRegenTimes(form) {
+        var count = Number(form.regen_count.value);
+        form.querySelectorAll('.regen-time').forEach((box, i) => {
+            box.style.display = i < count ? '' : 'none';
+            box.required = i < count;
+        });
+    }
+
+    // Checks run before posting. The CGI checks everything again: these only spare a round trip.
+    var validators = {
+        wifiForm: function (form) {
+            var ssid = form.wifiSSID.value;
+            var password = form.wifiPassword.value;
+            var bytes = new TextEncoder().encode(ssid).length;
+            if (bytes < 1 || bytes > 32)
+                return 'O nome da rede precisa ter de 1 a 32 caracteres.';
+            if (password.length < 8 || password.length > 63)
+                return 'A senha precisa ter de 8 a 63 caracteres.';
+            if (password !== form.confirmPassword.value)
+                return 'Senhas não conferem!';
+            if (/["\\\x00-\x1f\x7f]/.test(ssid + password))
+                return 'Aspas, barra invertida e quebras de linha não são aceitas.';
+            return '';
+        }
+    };
+
+    function submitFormIndex(formId, event) {
+        event.preventDefault();
+
+        var form = document.getElementById(formId);
+        var check = validators[formId];
+        var problem = check ? check(form) : '';
+        var errorBox = form.querySelector('.error-message');
+        if (errorBox)
+            errorBox.textContent = problem;
+        if (problem)
+            return;
+
+        fetch('cgi-bin/nixie.cgi', {
+            method: 'POST',
+            body: new FormData(form)
+        })
+        .then(response => response.text())
+        .then(result => alert(result))
+        .catch(error => {
+            console.error('Error:', error);
+            alert('O relógio não respondeu.');
+        });
+    }
+
+    </script>
+</body>
+</html>
+

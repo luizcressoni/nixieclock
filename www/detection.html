@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detecção</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        form {
+            max-width: 400px;
+            margin: auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        label.choice {
+            display: inline-block;
+            margin-right: 16px;
+        }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        select {
+            margin-bottom: 16px;
+        }
+
+        h3 {
+            margin: 24px 0 12px;
+        }
+
+        p.status {
+            font-size: 0.85em;
+            line-height: 1.4;
+            padding: 8px 10px;
+            border-left: 4px solid #4caf50;
+            background: #f3f8f3;
+            margin: 0 0 16px;
+        }
+
+        p.status.warning {
+            border-left-color: #c77700;
+            background: #fff6e8;
+        }
+
+        input[type="text"],
+        input[type="radio"] {
+            margin-bottom: 16px;
+        }
+
+        p.hint {
+            font-size: 0.85em;
+            color: #555;
+            line-height: 1.4;
+            margin-top: -8px;
+        }
+
+        button {
+            display: block;
+            margin-bottom: 8px;
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Detecção</h2>
+    <form id="detectionForm" onsubmit="submitFormIndex('detectionForm', event)">
+        <input type="hidden" name="form" value="detection">
+
+        <label class="choice"><input type="radio" name="model" data-key="detection.model" value="face">Rosto</label>
+        <label class="choice"><input type="radio" name="model" data-key="detection.model" value="motion">Movimento</label>
+        <label class="choice"><input type="radio" name="model" data-key="detection.model" value="both">Ambos</label>
+
+        <label for="on_timeout">Tempo aceso depois de detectar (segundos, 5 a 3600):</label>
+        <input type="text" id="on_timeout" name="on_timeout" data-key="detection.on_timeout" inputmode="numeric" required>
+
+        <label for="fps">Quadros por segundo da câmera (1 a 30):</label>
+        <input type="text" id="fps" name="fps" data-key="detection.fps" inputmode="numeric" required>
+
+        <h3>Movimento</h3>
+
+        <label for="threshold">Limiar de diferença entre quadros (1 a 255):</label>
+        <input type="text" id="threshold" name="threshold" data-key="detection.threshold" inputmode="numeric" required>
+        <p class="hint">Menor acorda o relógio com menos movimento, e com mais alarme falso.</p>
+
+        <h3>Rosto</h3>
+
+        <p id="face_status" class="status"></p>
+
+        <label for="face_cascade">Detector:</label>
+        <select id="face_cascade" name="face_cascade" data-key="detection.face_cascade">
+            <option value="lbp_improved">LBP melhorado (padrão)</option>
+            <option value="lbp">LBP</option>
+            <option value="haar">Haar (mais minucioso, bem mais lento)</option>
+        </select>
+
+        <label for="face_scale_factor">Fator de escala (1,05 a 2,0):</label>
+        <input type="text" id="face_scale_factor" name="face_scale_factor" data-key="detection.face_scale_factor" inputmode="decimal" required>
+        <p class="hint">O passo entre um tamanho de rosto procurado e o seguinte. Menor procura mais
+            tamanhos: acha mais, gasta mais processador. O Pi Zero sente.</p>
+
+        <label for="face_min_neighbors">Vizinhos mínimos (1 a 10):</label>
+        <input type="text" id="face_min_neighbors" name="face_min_neighbors" data-key="detection.face_min_neighbors" inputmode="numeric" required>
+        <p class="hint">Quantas detecções sobrepostas um candidato precisa para contar como rosto.
+            Mais é mais exigente: menos alarme falso, e algum rosto de verdade perdido.</p>
+
+        <label for="face_min_consecutive">Quadros seguidos para confirmar (1 a 10):</label>
+        <input type="text" id="face_min_consecutive" name="face_min_consecutive" data-key="detection.face_min_consecutive" inputmode="numeric" required>
+        <p class="hint">Quantas vezes seguidas o rosto tem de aparecer antes de acender o relógio.
+            1 acende no primeiro quadro, alarme falso incluído.</p>
+
+        <label for="face_size_min">Tamanho mínimo (pixels):</label>
+        <input type="text" id="face_size_min" name="face_size_min" data-key="detection.face_size_min" inputmode="numeric" required>
+
+        <label for="face_size_max">Tamanho máximo (pixels):</label>
+        <input type="text" id="face_size_max" name="face_size_max" data-key="detection.face_size_max" inputmode="numeric" required>
+        <p class="hint">Limitado pelo lado menor do quadro da câmera e, por baixo, pela janela do
+            detector: 45 pixels no LBP melhorado, 24 nos outros dois. A busca só testa alguns
+            tamanhos, cada um o anterior vezes o fator de escala; o quadro acima mostra quais.</p>
+
+        <button type="submit">Salvar</button>
+    </form>
+</body>
+</html>
+

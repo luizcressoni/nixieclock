@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        form {
+            max-width: 400px;
+            margin: auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+
+        p.hint {
+            font-size: 0.85em;
+            color: #555;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <h2>Fuso e servidores NTP</h2>
+    <form id="ntpForm" onsubmit="submitFormIndex('ntpForm', event)">
+        <input type="hidden" name="form" value="ntp">
+
+        <label for="timezone">Fuso horário:</label>
+        <select id="timezone" name="timezone" data-key="ntp.timezone" required></select>
+
+        <label for="server0">Servidores (pelo menos um):</label>
+        <input type="text" id="server0" name="server0" data-key="ntp.server_0" maxlength="63" required>
+        <input type="text" id="server1" name="server1" data-key="ntp.server_1" maxlength="63">
+        <input type="text" id="server2" name="server2" data-key="ntp.server_2" maxlength="63">
+        <input type="text" id="server3" name="server3" data-key="ntp.server_3" maxlength="63">
+
+        <p class="hint">O fuso e os servidores vão direto para o sistema (systemd-timesyncd).
+            O horário de verão vem junto com o fuso, não precisa ajustar à mão.</p>
+
+        <button type="submit">Salvar</button>
+    </form>
+</body>
+</html>
+

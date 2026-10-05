@@ -1,0 +1,12 @@
+[Unit]
+Description=Check Wi-Fi or enable hotspot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/check_wifi_or_hotspot.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

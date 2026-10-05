@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ajustes de WiFi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        form {
+            max-width: 400px;
+            margin: auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .error-message {
+            color: red;
+            margin-top: 8px;
+        }
+
+        p.hint {
+            font-size: 0.85em;
+            color: #555;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <h2>Ajustes de WiFi</h2>
+    <form id="wifiForm" onsubmit="submitFormIndex('wifiForm', event)">
+        <input type="hidden" name="form" value="wifi">
+
+        <label for="wifiSSID">WiFi SSID:</label>
+        <input type="text" id="wifiSSID" name="wifiSSID" data-key="wifi.ssid" maxlength="32" required>
+
+        <label for="wifiPassword">Senha do WiFi:</label>
+        <input type="password" id="wifiPassword" name="wifiPassword" minlength="8" maxlength="63"
+               autocomplete="new-password" required>
+
+        <label for="confirmPassword">Confirme a senha:</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" minlength="8" maxlength="63"
+               autocomplete="new-password" required>
+
+        <p class="hint">A senha gravada não aparece aqui. Para salvar, digite a senha da rede de novo.
+            Salvar reinicia o relógio.</p>
+
+        <div class="error-message"></div>
+
+        <button type="submit">Salvar</button>
+    </form>
+</body>
+</html>
+

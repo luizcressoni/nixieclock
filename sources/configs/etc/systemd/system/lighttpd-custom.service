@@ -1,0 +1,10 @@
+[Unit]
+Description=Start Lighttpd with custom config
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/http.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

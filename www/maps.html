@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Localização</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        form {
+            max-width: 400px;
+            margin: auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        label.inline input {
+            width: auto;
+            margin: 0 6px 16px 0;
+        }
+    </style>
+</head>
+<body>
+    <h2>Localização</h2>
+    <i>Use Google maps ou outra ferramenta para detectar sua latitude e longitude.</i><br>
+    <i>A chave da previs&atilde;o do tempo &eacute; gratuita e sai de <a href="https://www.weatherapi.com/" target="_blank">weatherapi.com</a>.</i><br><br>
+    <form id="locationForm" onsubmit="submitFormIndex('locationForm', event)">
+        <input type="hidden" name="form" value="maps">
+
+        <label for="latitude">Latitude:</label>
+        <input type="text" id="latitude" name="latitude" data-key="maps.latitude" inputmode="decimal" required>
+
+        <label for="longitude">Longitude:</label>
+        <input type="text" id="longitude" name="longitude" data-key="maps.longitude" inputmode="decimal" required>
+
+        <label for="apikey">Chave da API de previs&atilde;o (weatherapi.com):</label>
+        <input type="text" id="apikey" name="apikey" autocomplete="off" maxlength="63">
+
+        <label class="inline"><input type="checkbox" name="apikey_clear" value="1">
+            Apagar a chave gravada (desliga a previs&atilde;o do tempo)</label>
+
+        <button type="submit">Salvar</button>
+    </form>
+</body>
+</html>
+

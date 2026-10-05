@@ -1,0 +1,12 @@
+[Unit]
+Description=Motion and face capture app
+After=nixie.service 
+Requires=nixie.service
+
+[Service]
+ExecStart=/home/pi/nixiepi/camera
+WorkingDirectory=/home/pi/nixiepi
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
