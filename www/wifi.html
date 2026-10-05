@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ajustes de WiFi</title>
+    <title>Wi-Fi settings</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -49,27 +49,27 @@
     </style>
 </head>
 <body>
-    <h2>Ajustes de WiFi</h2>
+    <h2>Wi-Fi settings</h2>
     <form id="wifiForm" onsubmit="submitFormIndex('wifiForm', event)">
         <input type="hidden" name="form" value="wifi">
 
-        <label for="wifiSSID">WiFi SSID:</label>
+        <label for="wifiSSID">Wi-Fi SSID:</label>
         <input type="text" id="wifiSSID" name="wifiSSID" data-key="wifi.ssid" maxlength="32" required>
 
-        <label for="wifiPassword">Senha do WiFi:</label>
+        <label for="wifiPassword">Wi-Fi password:</label>
         <input type="password" id="wifiPassword" name="wifiPassword" minlength="8" maxlength="63"
                autocomplete="new-password" required>
 
-        <label for="confirmPassword">Confirme a senha:</label>
+        <label for="confirmPassword">Confirm password:</label>
         <input type="password" id="confirmPassword" name="confirmPassword" minlength="8" maxlength="63"
                autocomplete="new-password" required>
 
-        <p class="hint">A senha gravada não aparece aqui. Para salvar, digite a senha da rede de novo.
-            Salvar reinicia o relógio.</p>
+        <p class="hint">The stored password is not shown here. To save, type the network password again.
+            Saving restarts the clock.</p>
 
         <div class="error-message"></div>
 
-        <button type="submit">Salvar</button>
+        <button type="submit">Save</button>
     </form>
 </body>
 </html>

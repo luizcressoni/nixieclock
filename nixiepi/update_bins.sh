@@ -17,8 +17,8 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 BUILD_DIR=${BUILD_DIR:-/home/pi/sources/clock/dockerbuild}
 
-# Checa tudo antes de parar os servicos: assim uma copia incompleta nao
-# derruba o relogio nem o reinicia com binarios velhos.
+# Check everything before stopping the services: an incomplete copy must not
+# leave the clock down or restart it on stale binaries.
 for f in camera nixie nixie.cgi liblogger.so; do
     if [ ! -f "$BUILD_DIR/$f" ]; then
         echo "ERROR: $BUILD_DIR/$f not found -- build it first (docker/build.sh)" >&2
@@ -26,7 +26,7 @@ for f in camera nixie nixie.cgi liblogger.so; do
     fi
 done
 
-echo "Stoping services..."
+echo "Stopping services..."
 "$SCRIPT_DIR/services.sh" disable
 
 echo "Copying files..."
@@ -35,8 +35,8 @@ cp "$BUILD_DIR/nixie"     /home/pi/nixiepi/nixie
 cp "$BUILD_DIR/nixie.cgi" /home/pi/www/cgi-bin/nixie.cgi
 sudo cp "$BUILD_DIR/liblogger.so" /usr/local/lib/liblogger.so
 
-# Os binarios nao carregam mais RUNPATH, entao liblogger.so e achada via cache
-# do ld. /usr/local/lib so entra nesse cache depois do ldconfig.
+# No RUNPATH in the binaries: liblogger.so is found through the ld cache,
+# and /usr/local/lib only gets there after ldconfig.
 sudo ldconfig
 
 echo "Starting services..."

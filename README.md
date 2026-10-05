@@ -1,266 +1,266 @@
 # Nixie Clock
 
-Um relógio de válvulas nixie rodando num Raspberry Pi Zero: mostra data e hora
-nos tubos, temperatura ou dia da semana no bargraph, acende quando alguém chega
-na frente dele e se configura por uma página web que ele mesmo serve.
+A nixie tube clock running on a Raspberry Pi Zero: date and time on the tubes,
+temperature or weekday on the bargraph. It lights up when somebody walks up to
+it and is configured through a web page it serves itself.
 
-![o relógio](www/jpgs/clock.jpg)
+![the clock](www/jpgs/clock.jpg)
 
-- Sincroniza a hora por NTP e busca a previsão do tempo pela internet
-- Abre o próprio hotspot quando não acha a rede de casa, e mostra o IP nos tubos
-- LEDs RGB sob as válvulas indicam o estado do relógio e a cobertura de nuvens
-- Detecção de rosto e de movimento para acordar o display e trocar o que ele mostra
-- Regeneração de catodo (anti-envenenamento) automática, de madrugada
+- Syncs time over NTP and fetches the weather forecast from the internet
+- Brings up its own hotspot when the home network is missing, and shows the IP on the tubes
+- RGB LEDs under the tubes show the clock's state and the cloud cover
+- Face and motion detection wake the display and change what it shows
+- Automatic cathode regeneration (anti-poisoning) in the small hours
 
-Autor: [Luiz Cressoni](mailto:luiz@cressoni.com.br)
-
----
-
-## Sumário
-
-- [O que você precisa](#o-que-você-precisa)
-- [Gerando o cartão SD](#gerando-o-cartão-sd)
-- [Primeiro boot](#primeiro-boot)
-- [Configurando pela página web](#configurando-pela-página-web)
-- [Como o relógio é montado por dentro](#como-o-relógio-é-montado-por-dentro)
-- [Desenvolvimento](#desenvolvimento)
-- [Segredos: o que nunca pode entrar no git](#segredos-o-que-nunca-pode-entrar-no-git)
-- [Diagnóstico](#diagnóstico)
-- [Onde cada coisa vai parar no cartão](#onde-cada-coisa-vai-parar-no-cartão)
+Author: [Luiz Cressoni](mailto:luiz@cressoni.com.br)
 
 ---
 
-## O que você precisa
+## Contents
+
+- [What you need](#what-you-need)
+- [Building the SD card](#building-the-sd-card)
+- [First boot](#first-boot)
+- [Configuring through the web page](#configuring-through-the-web-page)
+- [How the clock works inside](#how-the-clock-works-inside)
+- [Development](#development)
+- [Secrets: what must never go into git](#secrets-what-must-never-go-into-git)
+- [Troubleshooting](#troubleshooting)
+- [Where everything goes on the card](#where-everything-goes-on-the-card)
+
+---
+
+## What you need
 
 **Hardware**
 
 | | |
 |---|---|
-| Placa | Raspberry Pi Zero ou Zero W (ARMv6) |
-| Cartão | 8 GB ou mais |
-| Câmera | webcam USB (UVC) — o `camera` abre `/dev/video0` via V4L2 |
-| RTC | DS3231 no barramento I²C, para segurar a hora quando falta luz |
-| Display | 6 válvulas nixie + bargraph IN-9 + LEDs RGB |
+| Board | Raspberry Pi Zero or Zero W (ARMv6) |
+| Card | 8 GB or more |
+| Camera | USB webcam (UVC) — `camera` opens `/dev/video0` through V4L2 |
+| RTC | DS3231 on the I²C bus, to keep time through power cuts |
+| Display | 6 nixie tubes + IN-9 bargraph + RGB LEDs |
 
-Os esquemas, datasheets e fotos da montagem estão em [`projeto/`](projeto/), e
-vão junto para o cartão, em `/home/pi/projeto`.
+Schematics, datasheets and build photos are in [`projeto/`](projeto/), and go
+onto the card as well, in `/home/pi/projeto`.
 
-**No PC que vai gerar o cartão** (testado em Ubuntu):
+**On the PC that builds the card** (tested on Ubuntu):
 
 ```bash
 sudo apt-get install -y docker.io qemu-user-binfmt \
                         xz-utils curl rsync fdisk e2fsprogs openssl python3
-# Ubuntu até o 24.04: qemu-user-static binfmt-support no lugar de qemu-user-binfmt
+# Ubuntu up to 24.04: qemu-user-static binfmt-support instead of qemu-user-binfmt
 
-# acesso ao docker sem sudo
+# docker without sudo
 sudo addgroup --system docker
 sudo adduser "$USER" docker
-# só para instalação via snap:
+# snap installs only:
 sudo snap disable docker && sudo snap enable docker
 ```
 
-Depois abra um terminal novo (ou `newgrp docker`) para o grupo valer.
+Then open a new terminal (or run `newgrp docker`) so the group applies.
 
-Para conferir o QEMU: `cat /proc/sys/fs/binfmt_misc/qemu-arm` tem de existir e
-mostrar um `F` na linha `flags:` (é ele que faz o emulador funcionar dentro do
-container), e `docker run --rm balenalib/rpi-raspbian:bullseye uname -m` tem de
-responder `armv6l`.
+To check QEMU: `/proc/sys/fs/binfmt_misc/qemu-arm` must exist and show an `F`
+on its `flags:` line (that is what makes the emulator work inside the
+container), and `docker run --rm balenalib/rpi-raspbian:bullseye uname -m` must
+answer `armv6l`.
 
-> **Por que QEMU?** O Pi Zero é ARMv6. Um toolchain armhf de Debian/Ubuntu
-> produz binários ARMv7, que simplesmente não rodam nele. Por isso tudo é
-> compilado dentro de um container Raspberry Pi OS armhf de verdade, emulado
-> por `binfmt_misc` + `qemu-arm`. É mais lento e é o que funciona.
+> **Why QEMU?** The Pi Zero is ARMv6. A Debian/Ubuntu armhf toolchain produces
+> ARMv7 binaries, which simply do not run on it. So everything is built inside
+> a real Raspberry Pi OS armhf container, emulated through `binfmt_misc` +
+> `qemu-arm`. Slower, but it works.
 
 ---
 
-## Gerando o cartão SD
+## Building the SD card
 
 ```bash
-git clone <url-deste-repositorio> nixie
+git clone <this-repository-url> nixie
 cd nixie
 
-./tools/make_image.sh --password 'uma-senha-boa'
+./tools/make_image.sh --password 'a-good-password'
 ```
 
-Isso, sozinho, produz `build/nixie-clock.img`. O script:
+That alone produces `build/nixie-clock.img`. The script:
 
-1. baixa o Raspberry Pi OS **Bullseye armhf lite** (2024-10-22) e o tarball do
-   **lighttpd 1.4.78**, conferindo o SHA-256 dos dois;
-2. descompacta e aumenta o rootfs — a imagem original não tem folga;
-3. compila `nixie`, `camera`, `nixie.cgi` e `liblogger.so` no container ARM;
-4. compila o lighttpd no mesmo container, com `--without-pcre2`;
-5. instala as dependências *dentro* da imagem, por chroot emulado;
-6. copia binários, páginas, scripts, units e configs para os lugares certos;
-7. prepara o primeiro boot: usuário, SSH, Wi-Fi, `config.txt`, fuso, hostname.
+1. downloads Raspberry Pi OS **Bullseye armhf lite** (2024-10-22) and the
+   **lighttpd 1.4.78** tarball, checking the SHA-256 of both;
+2. unpacks the image and grows the rootfs — the stock image has no headroom;
+3. builds `nixie`, `camera`, `nixie.cgi` and `liblogger.so` in the ARM container;
+4. builds lighttpd in the same container, with `--without-pcre2`;
+5. installs the dependencies *inside* the image, through an emulated chroot;
+6. copies binaries, pages, scripts, units and configs to their places;
+7. prepares first boot: user, SSH, Wi-Fi, `config.txt`, time zone, hostname.
 
-A primeira execução demora bastante — compilar OpenCV-linkado e lighttpd sob
-emulação não é rápido. As seguintes reaproveitam o download e o lighttpd já
-compilado.
+The first run takes a long time — building OpenCV-linked code and lighttpd
+under emulation is not fast. Later runs reuse the download and the lighttpd
+build.
 
-### Opções úteis
+### Useful options
 
 ```bash
 ./tools/make_image.sh \
-  --password 'uma-senha-boa' \
+  --password 'a-good-password' \
   --hostname nixie \
   --timezone America/Sao_Paulo \
-  --wifi-ssid 'MinhaRede' --wifi-psk 'senha-do-wifi' \
-  --weather-key 'sua-chave-do-weatherapi' \
+  --wifi-ssid 'MyNetwork' --wifi-psk 'wifi-password' \
+  --weather-key 'your-weatherapi-key' \
   --latitude -23.5505 --longitude -46.6333 \
   --compress
 ```
 
-`./tools/make_image.sh --help` lista todas. As mais importantes:
+`./tools/make_image.sh --help` lists them all. The main ones:
 
-| Opção | Para quê |
+| Option | Purpose |
 |---|---|
-| `--password` | **obrigatória** — o Bullseye não cria mais um usuário padrão |
-| `--wifi-ssid` / `--wifi-psk` | já deixa a rede gravada; sem elas o relógio sobe o hotspot |
-| `--weather-key` | chave do [weatherapi.com](https://www.weatherapi.com/) (grátis); sem ela a previsão fica desligada |
-| `--with-devtools` | já deixa o toolchain instalado no cartão, para compilar no próprio Pi (+~1,2 GB). Sem ela dá para instalar depois — o `leiame.txt` do cartão diz como |
-| `--compress` | gera também o `.img.xz` |
-| `--keep-image` | reaproveita a imagem já montada, em vez de refazer do zero |
+| `--password` | **required** — Bullseye no longer creates a default user |
+| `--wifi-ssid` / `--wifi-psk` | stores the network up front; without them the clock brings up the hotspot |
+| `--weather-key` | [weatherapi.com](https://www.weatherapi.com/) key (free); without it the forecast is off |
+| `--with-devtools` | preinstalls the toolchain, to build on the Pi itself (+~1.2 GB). It can be installed later — the card's `readme.txt` explains how |
+| `--compress` | also produces the `.img.xz` |
+| `--keep-image` | reuses the image already built instead of starting over |
 
-O usuário é sempre `pi`: `/home/pi` está embutido no código (`json_parser.cpp`,
-`lighttpd.conf`, os units do systemd) e mudar isso exigiria recompilar.
+The user is always `pi`: `/home/pi` is baked into the code (`json_parser.cpp`,
+`lighttpd.conf`, the systemd units) and changing it means rebuilding.
 
-### Gravando
+### Flashing
 
-O script **nunca escreve em dispositivo nenhum** — essa escolha é sempre sua.
-Confira o alvo com `lsblk` antes, e então:
+The script **never writes to any device** — that choice is always yours.
+Check the target with `lsblk` first, then:
 
 ```bash
-lsblk                      # ache o seu cartão. NÃO chute.
+lsblk                      # find your card. Do NOT guess.
 sudo dd if=build/nixie-clock.img of=/dev/sdX bs=4M conv=fsync status=progress
 ```
 
-ou abra `build/nixie-clock.img` no Raspberry Pi Imager em *Use custom image*.
+or open `build/nixie-clock.img` in Raspberry Pi Imager under *Use custom image*.
 
 ---
 
-## Primeiro boot
+## First boot
 
-Com `--wifi-ssid`, o relógio conecta na rede e segue a vida. Sem ela — ou se a
-rede não estiver no ar — ele:
+With `--wifi-ssid`, the clock joins the network and carries on. Without it — or
+if the network is down — it:
 
-1. sobe um hotspot aberto chamado **`Relogio`**;
-2. mostra nos tubos o IP para conectar, algo como `192.168.4.1`;
-3. fica assim até a rede cadastrada aparecer. Isso acontece sozinho quando falta
-   luz: o relógio costuma bootar antes do roteador.
+1. brings up an open hotspot called **`NixieClock`**;
+2. shows the IP to connect to on the tubes, something like `192.168.4.1`;
+3. stays that way until the stored network shows up. This happens on its own
+   after a power cut: the clock usually boots before the router.
 
-Para configurar em modo hotspot: ponha o celular em modo avião, ligue só o
-Wi-Fi, conecte em `Relogio` e abra o IP no navegador. Qualquer endereço serve —
-`google.com`, o que for — tudo cai na página de configuração (o `dnsmasq`
-responde todo domínio com o IP do relógio).
+To configure it in hotspot mode: put the phone in airplane mode, turn on Wi-Fi
+only, join `NixieClock` and open the IP in the browser. Any address works —
+`google.com`, whatever — everything lands on the configuration page (`dnsmasq`
+answers every domain with the clock's IP).
 
-Em modo normal, o site fica em `http://<ip-do-relogio>/` ou
-`http://nixie.local/`.
+In normal mode, the site is at `http://<clock-ip>/` or `http://nixie.local/`.
 
 ---
 
-## Configurando pela página web
+## Configuring through the web page
 
-| Aba | O que ajustar |
+| Tab | What to set |
 |---|---|
-| **Wi-Fi** | SSID e senha da rede. Respeite maiúsculas e minúsculas — isso aqui é Linux. A senha gravada nunca volta para a página: para salvar, digite de novo. Salvar reinicia o relógio. |
-| **Localização** | Latitude, longitude e a **chave da API de previsão**. Sinal negativo para sul e oeste; vírgula ou ponto, tanto faz. A chave gravada não aparece: campo em branco mantém, e a caixa *Apagar* tira. |
-| **Servidores NTP** | Fuso (com horário de verão) e até quatro servidores. Vão direto para o sistema: `timedatectl` e `systemd-timesyncd`. |
-| **Detecção** | Rosto, movimento ou ambos, tempo aceso, quadros por segundo e limiar de movimento. Do rosto: detector (LBP melhorado, LBP ou Haar), fator de escala, vizinhos mínimos, quadros seguidos para confirmar e tamanhos. Vale na hora, sem reiniciar. A aba mostra o quadro que a câmera entrega e os tamanhos de rosto que a busca testa de fato (`/tmp/camera_face.json`), e avisa quando a faixa pedida não continha nenhum. |
-| **Limites das válvulas** | Brilho geral, faixa do bargraph, horário de funcionamento e regeneração de catodo: a automática (até 6 rodadas por dia, cada uma no seu horário, e as voltas por rodada) e a manual, numa válvula escolhida. |
-| **Logs** | O log corrente do relógio, sem precisar de SSH. |
+| **Wi-Fi** | Network SSID and password. Mind upper and lower case — this is Linux. The stored password never comes back to the page: type it again to save. Saving restarts the clock. |
+| **Location** | Latitude, longitude and the **weather API key**. Negative for south and west; comma or dot, either works. The stored key is not shown: a blank field keeps it, the *Delete* box removes it. |
+| **NTP servers** | Time zone (daylight saving included) and up to four servers. They go straight to the system: `timedatectl` and `systemd-timesyncd`. |
+| **Detection** | Face, motion or both, display time, frames per second and motion threshold. For faces: detector (improved LBP, LBP or Haar), scale factor, minimum neighbors, consecutive frames to confirm, and sizes. Takes effect immediately, no restart. The tab shows the frame the camera delivers and the face sizes the search actually tries (`/tmp/camera_face.json`), and warns when the requested range held none. |
+| **Tubes** | Overall brightness, bargraph range, daytime hours and cathode regeneration: automatic (up to 6 sessions a day, each at its own time, with sweeps per session) and manual, on a chosen tube. |
+| **Logs** | The clock's current log, no SSH needed. |
 
-**Calibrando o bargraph:** ao mexer nos valores, a válvula mostra a barra.
-Ajuste o *mínimo* para a barra cair sobre o zero e o *máximo* para ela chegar
-nos 45 °C. De vez em quando precisa reajustar.
+**Calibrating the bargraph:** while you change the values, the tube shows the
+bar. Set the *minimum* so the bar sits on zero and the *maximum* so it reaches
+45 °C. It needs readjusting now and then.
 
-> A **chave da previsão do tempo** sai de [weatherapi.com](https://www.weatherapi.com/),
-> o plano gratuito basta. Sem chave o relógio funciona normalmente, só não
-> mostra temperatura nem usa o nascer/pôr do sol real (cai para o horário fixo
-> configurado em *Limites das válvulas*).
+> The **weather key** comes from [weatherapi.com](https://www.weatherapi.com/);
+> the free plan is enough. Without a key the clock works normally, it just does
+> not show the temperature or use the real sunrise/sunset (it falls back to the
+> fixed hours set in *Tubes*).
 
 ---
 
-## Como o relógio é montado por dentro
+## How the clock works inside
 
-Três processos e um punhado de scripts de rede:
+Three processes and a handful of network scripts:
 
 ```
-  camera ──signal──▶ nixie ──▶ válvulas, PWM, bargraph, LEDs RGB
+  camera ──signal──▶ nixie ──▶ tubes, PWM, bargraph, RGB LEDs
     │                  │
     │                  ├──▶ NTP + weatherapi.com (via curl)
     │                  └──◀── /tmp/network_mode, /tmp/wifi.txt
     │
   /dev/video0                lighttpd ──▶ nixie.cgi ──▶ nixie.json
                                 │                          │
-                                └──▶ www/ (páginas) ◀───────┘
+                                └──▶ www/ (pages) ◀────────┘
 ```
 
-| Processo | Papel |
+| Process | Role |
 |---|---|
-| `camera` | Olha a webcam procurando rostos e movimento. Ao detectar, manda um signal para o `nixie`. |
-| `nixie` | O relógio. Processa os signals (e gera os seus), controla todo o hardware, busca hora e previsão. Roda como root — precisa do `pigpio`. |
-| `nixie.cgi` | Atende o site: entrega a configuração para as páginas (sem senha nem chave), valida cada campo, grava no `nixie.json`, aplica fuso e NTP no sistema e avisa `nixie` e `camera` por signal. |
-| `liblogger.so` | Log compartilhado pelos três, instalada em `/usr/local/lib`. |
+| `camera` | Watches the webcam for faces and motion. On a detection, it sends a signal to `nixie`. |
+| `nixie` | The clock. Handles signals (and raises its own), drives all the hardware, fetches time and forecast. Runs as root — `pigpio` needs it. |
+| `nixie.cgi` | Serves the site: hands the configuration to the pages (without password or key), validates every field, writes `nixie.json`, applies time zone and NTP to the system and notifies `nixie` and `camera` by signal. |
+| `liblogger.so` | Log shared by all three, installed in `/usr/local/lib`. |
 
-**A decisão de rede** fica em `/usr/local/bin/check_wifi_or_hotspot.sh`, disparado
-uma vez no boot pelo `wifi-check.service`: espera o `wlan0` pegar IP, testa a
-internet com um ping e então ou segue em modo Wi-Fi, ou sobe `dnsmasq` +
-`hostapd` e vira hotspot. Ele escreve o veredito em `/tmp/network_mode`, que é
-o que o `nixie` lê para decidir se mostra o IP nos tubos. **No fim desse mesmo
-script é que o lighttpd sobe** — por isso o `lighttpd-custom.service` vai
-instalado mas **desabilitado**: habilitar os dois poria duas instâncias na
-porta 80.
+**The network decision** lives in `/usr/local/bin/check_wifi_or_hotspot.sh`, run
+once at boot by `wifi-check.service`: it waits for `wlan0` to get an IP, tests
+the internet with a ping and then either stays in Wi-Fi mode or brings up
+`dnsmasq` + `hostapd` as a hotspot. It writes the verdict to `/tmp/network_mode`,
+which `nixie` reads to decide whether to show the IP on the tubes. **The last
+line of that same script starts lighttpd** — that is why
+`lighttpd-custom.service` is installed but **disabled**: enabling both would put
+two instances on port 80.
 
-Em paralelo, o `check_ssid.service` roda `check_ssid.sh` num laço, procurando a
-rede cadastrada no ar. Quando acha, cria `/tmp/wifi.txt` — é assim que um
-relógio preso no hotspot descobre que o roteador voltou.
+Meanwhile, `check_ssid.service` runs `check_ssid.sh` in a loop, looking for the
+stored network. When it shows up, the script creates `/tmp/wifi.txt` — that is
+how a clock stuck in hotspot mode finds out the router is back.
 
-`hostapd` e `dnsmasq` ficam **desabilitados no boot** de propósito: quem os
-sobe, sob demanda, é o script acima. Desabilitados, não mascarados — mascarar
-impediria o próprio script de iniciá-los.
+`hostapd` and `dnsmasq` are **disabled at boot** on purpose: the script above
+starts them on demand. Disabled, not masked — masking would stop the script
+from starting them.
 
 ---
 
-## Desenvolvimento
+## Development
 
-### Compilando no PC
+### Building on the PC
 
 ```bash
 cd sources/clock
-./docker/build.sh                  # todos os targets
-./docker/build.sh nixie camera     # só alguns
-./docker/build.sh --shell          # um shell dentro do container
-./docker/build.sh --clean          # descarta o diretório de build
+./docker/build.sh                  # all targets
+./docker/build.sh nixie camera     # just some
+./docker/build.sh --shell          # a shell inside the container
+./docker/build.sh --clean          # discard the build directory
 ```
 
-Os artefatos saem em `sources/clock/dockerbuild/`. As pastas `build/` e
-`rpibuild/` guardam caches de CMake gerados no próprio Pi e **não** são
-reaproveitáveis no PC.
+Output goes to `sources/clock/dockerbuild/`. The `build/` and `rpibuild/`
+folders hold CMake caches made on the Pi itself and **cannot** be reused on
+the PC.
 
 Targets: `nixie`, `camera`, `nixie.cgi`, `logger`.
 
-### Atualizando um relógio que já está rodando
+### Updating a running clock
 
-Sem regravar o cartão: sincronize o build e rode o instalador *no Pi*.
+No reflashing: sync the build and run the installer *on the Pi*.
 
 ```bash
-# no PC
+# on the PC
 rsync -av --delete sources/clock/dockerbuild/ pi@nixie.local:/home/pi/sources/clock/dockerbuild/
 
-# no Pi
+# on the Pi
 ~/nixiepi/update_bins.sh
 ```
 
-O `update_bins.sh` confere que os quatro artefatos estão lá **antes** de parar
-os serviços, copia tudo, instala a `liblogger.so` em `/usr/local/lib`, roda
-`ldconfig` e religa os serviços.
+`update_bins.sh` checks that all four artifacts are there **before** stopping
+the services, copies everything, installs `liblogger.so` in `/usr/local/lib`,
+runs `ldconfig` and restarts the services.
 
-Para parar/subir à mão: `~/nixiepi/services.sh {enable|disable|status|restart}`.
+To stop/start by hand: `~/nixiepi/services.sh {enable|disable|status|restart}`.
 
-### Compilando no próprio Pi
+### Building on the Pi itself
 
-Os fontes vão sempre para `/home/pi/sources/clock`. O toolchain vem instalado
-com `--with-devtools`; sem ela, instale no Pi (com internet, não em hotspot):
+The sources always go to `/home/pi/sources/clock`. The toolchain comes
+preinstalled with `--with-devtools`; otherwise install it on the Pi (online,
+not in hotspot mode):
 
 ```bash
 sudo apt-get update
@@ -268,7 +268,7 @@ sudo apt-get install -y build-essential cmake pkg-config git \
                         libopencv-dev libcurl4-openssl-dev libpigpio-dev
 ```
 
-Compilando e instalando:
+Building and installing:
 
 ```bash
 cd ~/sources/clock
@@ -277,124 +277,125 @@ make -C build -j1
 BUILD_DIR=~/sources/clock/build ~/nixiepi/update_bins.sh
 ```
 
-Demora: o Zero tem um núcleo só. É por isso que o caminho normal é compilar no
-PC e usar o `update_bins.sh`.
+It is slow: the Zero has a single core. That is why the normal path is to build
+on the PC and use `update_bins.sh`.
 
-### Documentação do código
+### Code documentation
 
-Gerada por Doxygen (precisa de `doxygen` e `graphviz`) a partir do
-`sources/clock/Doxyfile`, rodado de dentro de `sources/clock`. Sai em
-`sources/clock/docs/html/`: abra o `index.html`.
+Generated by Doxygen (needs `doxygen` and `graphviz`) from
+`sources/clock/Doxyfile`, run from inside `sources/clock`. Output goes to
+`sources/clock/docs/html/`: open `index.html`.
 
 ---
 
-## Segredos: o que nunca pode entrar no git
+## Secrets: what must never go into git
 
-Três coisas neste projeto são privadas e **não** podem ser commitadas:
+Three things in this project are private and must **not** be committed:
 
-| | Onde fica | |
+| | Where | |
 |---|---|---|
-| Senha do Wi-Fi de casa | `www/json/nixie.json` | ignorado pelo git |
-| Coordenadas de onde o relógio mora | `www/json/nixie.json` | ignorado pelo git |
-| Chave da API de previsão | `www/json/nixie.json` | ignorado pelo git |
+| Home Wi-Fi password | `www/json/nixie.json` | ignored by git |
+| The clock's home coordinates | `www/json/nixie.json` | ignored by git |
+| Weather API key | `www/json/nixie.json` | ignored by git |
 
-O modelo publicável, com os campos vazios, é **`www/json/nixie.default.json`** —
-esse sim é versionado, e é dele que o `make_image.sh` parte ao gravar o cartão.
-O `nixie.json` de verdade nunca é lido pelo gerador de imagem, justamente para
-que a configuração da sua casa não vaze para a imagem que você distribui.
+The publishable template, with empty fields, is **`www/json/nixie.default.json`** —
+that one is tracked, and `make_image.sh` starts from it when building the card.
+The real `nixie.json` is never read by the image builder, so your home
+configuration does not leak into an image you hand out.
 
-No relógio, o `nixie.json` também não sai pela rede: o `lighttpd.conf` recusa
-qualquer `.json`, e as páginas leem a configuração por
-`cgi-bin/nixie.cgi?get=config`, que deixa de fora a senha do Wi-Fi e a chave.
+On the clock, `nixie.json` does not leave over the network either:
+`lighttpd.conf` refuses any `.json`, and the pages read the configuration
+through `cgi-bin/nixie.cgi?get=config`, which leaves out the Wi-Fi password and
+the key.
 
-Antes de qualquer commit:
+Before any commit:
 
 ```bash
 ./tools/check_secrets.sh
 ```
 
-Ele varre o que o git versiona procurando chaves de API, senhas e SSIDs com
-valor preenchido, e recusa `www/json/nixie.json` versionado. Para deixar isso
-automático, crie `.git/hooks/pre-commit` com:
+It scans what git tracks for API keys, passwords and SSIDs with values, and
+rejects a tracked `www/json/nixie.json`. To automate it, create
+`.git/hooks/pre-commit` with:
 
 ```bash
 #!/usr/bin/env bash
 exec "$(git rev-parse --show-toplevel)/tools/check_secrets.sh" --staged
 ```
 
-e dê `chmod +x` nele. (Um `git commit --no-verify` pula a checagem, para o caso
-raro em que ela erra.)
+and `chmod +x` it. (`git commit --no-verify` skips the check, for the rare case
+it gets it wrong.)
 
-Se alguma linha for um falso positivo (um template, um exemplo), marque-a com
-um comentário `check-secrets: ok`.
+If a line is a false positive (a template, an example), mark it with a
+`check-secrets: ok` comment.
 
-### O que mais fica fora do git
+### What else stays out of git
 
-Além dos segredos, o `.gitignore` corta três categorias — nenhuma delas se
-perde, todas são reproduzíveis:
+Besides the secrets, `.gitignore` cuts these — none of them is lost, all are
+reproducible:
 
-| | Por quê |
+| | Why |
 |---|---|
-| **Binários** e diretórios de build | `./docker/build.sh` os refaz |
-| **`sources/clock/docs/`** | Doxygen gera: `cd sources/clock && doxygen Doxyfile` |
-| **`sources/opencv/`** (347 MB) | Não participa de build nenhum — o OpenCV vem do apt, no Pi e no container |
-| **`lighttpd-1.4.78/`** e o tarball | O `make_image.sh` baixa do site oficial e confere o SHA-256 |
+| **Binaries** and build directories | `./docker/build.sh` rebuilds them |
+| **`sources/clock/docs/`** | Doxygen generates it: `cd sources/clock && doxygen Doxyfile` |
+| **`sources/opencv/`** (347 MB) | Not part of any build — OpenCV comes from apt, on the Pi and in the container |
+| **`lighttpd-1.4.78/`** and the tarball | `make_image.sh` downloads it from the official site and checks the SHA-256 |
 
-Duas coisas de terceiros **ficam** versionadas, de propósito:
+Two third-party items **stay** tracked, on purpose:
 
-- **`sources/clock/src/logger/spdlog/`** — header-only compilado dentro da
-  `liblogger.so`. O Bullseye só empacota o 1.8.1 e aqui o que funciona é o
-  1.11.0; trocar seria mexer no que já está de pé por 1 MB.
-- **`nixiepi/*.xml`** — vêm do OpenCV, mas são dados de runtime, não fonte:
-  sem elas o relógio sobe mostrando `99   1`.
+- **`sources/clock/src/logger/spdlog/`** — header-only, built into
+  `liblogger.so`. Bullseye only packages 1.8.1 and the clock runs on 1.11.0;
+  swapping it would mean touching what already works, to save 1 MB.
+- **`nixiepi/*.xml`** — from OpenCV, but runtime data, not source: without them
+  the clock boots showing `99   1`.
 
 ---
 
-## Diagnóstico
+## Troubleshooting
 
-O relógio mostra códigos de erro nos próprios tubos:
+The clock shows error codes on its own tubes:
 
-| Display | Significa |
+| Display | Meaning |
 |---|---|
-| `99   1` | Falha de configuração da câmera — o detector de rosto escolhido (`~/nixiepi/*.xml`) faltando ou corrompido. Trocar de detector na aba *Detecção* também resolve |
-| `99   2` | Falha de hardware da câmera — mau contato, ou queimou |
-| `99   3` | Sem Wi-Fi. Definido mas não implementado; se aparecer, é novidade |
+| `99   1` | Camera configuration failure — the chosen face detector (`~/nixiepi/*.xml`) is missing or corrupt. Picking another detector in the *Detection* tab also fixes it |
+| `99   2` | Camera hardware failure — bad contact, or it is dead |
+| `99   3` | No Wi-Fi. Defined but not implemented; if it shows up, that is news |
 
 Logs:
 
 ```bash
-tail -f /tmp/nixie.txt            # o log do relógio (também na aba "Logs" do site)
-cat /tmp/hotspot_debug.log        # o que o script de rede decidiu no boot
-cat /tmp/network_mode             # "WIFI" ou "HOTSPOT"
-ls  /tmp/wifi.txt                 # existe = a rede cadastrada está no ar
+tail -f /tmp/nixie.txt            # the clock's log (also in the site's "Logs" tab)
+cat /tmp/hotspot_debug.log        # what the network script decided at boot
+cat /tmp/network_mode             # "WIFI" or "HOTSPOT"
+ls  /tmp/wifi.txt                 # exists = the stored network is in range
 journalctl -u nixie -u camera -f
 ```
 
 ---
 
-## Onde cada coisa vai parar no cartão
+## Where everything goes on the card
 
-| No cartão | Vem de |
+| On the card | Comes from |
 |---|---|
 | `/home/pi/nixiepi/{nixie,camera}` | `sources/clock/dockerbuild/` |
-| `/home/pi/nixiepi/*.xml` | `nixiepi/` (cascatas; qual usar se escolhe na aba *Detecção*) |
+| `/home/pi/nixiepi/*.xml` | `nixiepi/` (cascades; pick one in the *Detection* tab) |
 | `/home/pi/nixiepi/{services,update_bins}.sh` | `nixiepi/` |
 | `/home/pi/www/` | `www/` |
-| `/home/pi/sources/clock/` | `sources/clock/` (sem os diretórios de build) |
+| `/home/pi/sources/clock/` | `sources/clock/` (without build directories) |
 | `/home/pi/projeto/` | `projeto/` |
-| `/home/pi/leiame.txt` | `leiame.txt` — o manual de quem só tem o relógio na mão |
+| `/home/pi/readme.txt` | `readme.txt` — the manual for whoever only has the clock at hand |
 | `/home/pi/www/cgi-bin/nixie.cgi` | `sources/clock/dockerbuild/` |
-| `/home/pi/www/json/nixie.json` | `www/json/nixie.default.json` + opções do script |
+| `/home/pi/www/json/nixie.json` | `www/json/nixie.default.json` + script options |
 | `/usr/local/lib/liblogger.so` | `sources/clock/dockerbuild/` |
-| `/usr/local/{sbin/lighttpd,lib/mod_*.so}` | compilado de `sources/lighttpd-1.4.78.tar.gz` |
+| `/usr/local/{sbin/lighttpd,lib/mod_*.so}` | built from `sources/lighttpd-1.4.78.tar.gz` |
 | `/usr/local/bin/*.sh` | `sources/scripts/usr/local/bin/` |
 | `/etc/systemd/system/*.service` | `sources/configs/etc/systemd/system/` |
 | `/etc/{dnsmasq.conf,dhcpcd.conf,hostapd/,default/hostapd,network/interfaces}` | `sources/configs/etc/` |
 
-Serviços habilitados no boot: `nixie`, `camera`, `wifi-check`, `check_ssid`.
-Instalado e **desabilitado**: `lighttpd-custom` (veja
-[Como o relógio é montado por dentro](#como-o-relógio-é-montado-por-dentro)).
+Services enabled at boot: `nixie`, `camera`, `wifi-check`, `check_ssid`.
+Installed and **disabled**: `lighttpd-custom` (see
+[How the clock works inside](#how-the-clock-works-inside)).
 
-O `config.txt` ganha um bloco `# --- nixie clock ---` com `dtparam=i2c_arm=on`,
-`enable_uart=1`, `gpu_mem=128`, `start_x=1` e `dtoverlay=i2c-rtc,ds3231`, e o
-módulo `i2c-dev` entra em `/etc/modules`.
+`config.txt` gets a `# --- nixie clock ---` block with `dtparam=i2c_arm=on`,
+`enable_uart=1`, `gpu_mem=128`, `start_x=1` and `dtoverlay=i2c-rtc,ds3231`, and
+the `i2c-dev` module goes into `/etc/modules`.

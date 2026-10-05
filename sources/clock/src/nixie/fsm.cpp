@@ -400,7 +400,7 @@ bool cNixieFsm::ProcessStateSleeping(int _action)
         break;
     case SIG_FACE_DETECTED:
         LOGGER_DEBUG("Face detected... waking up");
-        //on_timeout is what the web page calls "tempo de exibicao". It was read out of the
+        //on_timeout is what the web page calls "display time". It was read out of the
         //configuration file and then never used anywhere: this 90 was hardcoded, and happened
         //to match the shipped value, so the setting looked like it worked.
         SetStateAwake(gCameraConfig.on_timeout, enumDisplayModeTime);

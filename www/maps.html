@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Localização</title>
+    <title>Location</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -43,9 +43,9 @@
     </style>
 </head>
 <body>
-    <h2>Localização</h2>
-    <i>Use Google maps ou outra ferramenta para detectar sua latitude e longitude.</i><br>
-    <i>A chave da previs&atilde;o do tempo &eacute; gratuita e sai de <a href="https://www.weatherapi.com/" target="_blank">weatherapi.com</a>.</i><br><br>
+    <h2>Location</h2>
+    <i>Use Google Maps or any other tool to find your latitude and longitude.</i><br>
+    <i>The weather forecast key is free, from <a href="https://www.weatherapi.com/" target="_blank">weatherapi.com</a>.</i><br><br>
     <form id="locationForm" onsubmit="submitFormIndex('locationForm', event)">
         <input type="hidden" name="form" value="maps">
 
@@ -55,13 +55,13 @@
         <label for="longitude">Longitude:</label>
         <input type="text" id="longitude" name="longitude" data-key="maps.longitude" inputmode="decimal" required>
 
-        <label for="apikey">Chave da API de previs&atilde;o (weatherapi.com):</label>
+        <label for="apikey">Weather API key (weatherapi.com):</label>
         <input type="text" id="apikey" name="apikey" autocomplete="off" maxlength="63">
 
         <label class="inline"><input type="checkbox" name="apikey_clear" value="1">
-            Apagar a chave gravada (desliga a previs&atilde;o do tempo)</label>
+            Delete the stored key (turns the weather forecast off)</label>
 
-        <button type="submit">Salvar</button>
+        <button type="submit">Save</button>
     </form>
 </body>
 </html>

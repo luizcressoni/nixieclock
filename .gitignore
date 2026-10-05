@@ -1,9 +1,7 @@
-# ---------------------------------------------------------------- segredos
-# A configuracao real do relogio carrega SSID e senha do wi-fi de casa, as
-# coordenadas de onde ele mora e a chave da API de previsao do tempo. Nada
-# disso pode entrar no repositorio: o modelo versionado e nixie.default.json,
-# e e dele que o tools/make_image.sh parte ao gravar o cartao.
-# Confira com ./tools/check_secrets.sh antes de cada commit.
+# ------------------------------------------------------------------ secrets
+# The real config holds the home Wi-Fi, coordinates and weather API key.
+# The tracked template is nixie.default.json; tools/make_image.sh starts from it.
+# Run ./tools/check_secrets.sh before every commit.
 www/json/nixie.json
 /nixie.json
 *.key
@@ -11,8 +9,8 @@ secrets.cmake
 wpa_supplicant.conf
 userconf.txt
 
-# ------------------------------------------------------------------ binarios
-# Artefatos de compilacao. O build.sh os refaz em minutos.
+# ------------------------------------------------------------------ binaries
+# Build output. build.sh redoes it in minutes.
 sources/clock/build/
 sources/clock/rpibuild/
 sources/clock/dockerbuild/
@@ -25,38 +23,33 @@ www/cgi-bin/nixie.cgi
 *.so
 *.a
 
-# Saida de tools/make_image.sh: a imagem pronta e o cache de download.
+# tools/make_image.sh output: the image and the download cache.
 /build/
 *.img
 *.img.xz
 
-# ------------------------------------------------------------- documentacao
-# Gerada pelo Doxygen a partir de sources/clock/Doxyfile. Quem quiser, gera:
+# ------------------------------------------------------------ documentation
+# Doxygen output from sources/clock/Doxyfile:
 #   cd sources/clock && doxygen Doxyfile
 sources/clock/docs/
 
-# ---------------------------------------------------- fontes de terceiros
-# Nada aqui e nosso, e tudo e reproduzivel. O que o projeto realmente usa:
-#
-#   OpenCV   -> vem do apt (libopencv-* 4.5), no Pi e no container de build.
-#               Esta arvore de fontes nao participa de compilacao nenhuma.
-#   lighttpd -> tools/make_image.sh baixa o tarball 1.4.78 do site oficial e
-#               confere o sha256, do mesmo jeito que faz com a imagem do
-#               Raspberry Pi OS. A pasta abaixo e a arvore ja extraida.
+# ------------------------------------------------------ third-party sources
+# Not ours, all reproducible:
+#   OpenCV   -> from apt (libopencv-* 4.5); this source tree builds nothing.
+#   lighttpd -> tools/make_image.sh downloads the 1.4.78 tarball and checks
+#               its sha256. The folder below is the extracted tree.
 sources/opencv/
 /lighttpd-1.4.78/
 sources/lighttpd-1.4.78.tar.gz
 
-# Copia redundante: a que o relogio usa esta em nixiepi/, junto das outras
-# cascatas, porque e de la que o camera as abre.
+# Duplicate: camera loads its cascades from nixiepi/.
 sources/haarcascade_frontalface_default.xml
 
-# Duas excecoes deliberadas, que FICAM versionadas:
-#   sources/clock/src/logger/spdlog/  -- header-only compilado dentro da
-#     liblogger.so. O Bullseye so tem o 1.8.1 e aqui o que funciona e o
-#     1.11.0; trocar seria mexer no que ja esta de pe.
-#   nixiepi/*.xml  -- cascatas do OpenCV, mas sao dados de runtime: sem elas
-#     o relogio sobe mostrando o erro "99   1".
+# Two deliberate exceptions, KEPT in git:
+#   sources/clock/src/logger/spdlog/  -- header-only, built into liblogger.so.
+#     Bullseye ships 1.8.1; the clock runs on 1.11.0.
+#   nixiepi/*.xml  -- OpenCV cascades, but runtime data: without them the
+#     clock boots showing error "99   1".
 
 # ------------------------------------------------------------------- IDE
 .idea/

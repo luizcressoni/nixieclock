@@ -1,27 +1,26 @@
 #!/usr/bin/env bash
 #
-# Compila o relogio para o Raspberry Pi Zero (ARMv6) dentro de um container
-# Raspberry Pi OS Bullseye armhf, emulado via binfmt_misc + qemu-arm.
+# Builds the clock for the Raspberry Pi Zero (ARMv6) inside a Raspberry Pi OS
+# Bullseye armhf container, emulated through binfmt_misc + qemu-arm.
 #
-# Uso:
-#   ./docker/build.sh                  # compila todos os targets
-#   ./docker/build.sh nixie camera     # compila targets especificos
-#   ./docker/build.sh -j4              # limita o paralelismo (padrao: nproc)
-#   ./docker/build.sh --shell          # abre um shell no container
-#   ./docker/build.sh --clean          # descarta o diretorio de build
-#   ./docker/build.sh --rebuild-image  # reconstroi a imagem do zero
+# Usage:
+#   ./docker/build.sh                  # build all targets
+#   ./docker/build.sh nixie camera     # build the given targets
+#   ./docker/build.sh -j4              # limit parallel jobs (default: nproc)
+#   ./docker/build.sh --shell          # open a shell in the container
+#   ./docker/build.sh --clean          # discard the build directory
+#   ./docker/build.sh --rebuild-image  # rebuild the image from scratch
 #
-# Os artefatos saem em dockerbuild/ -- separado de build/ e rpibuild/, que
-# contem caches do CMake gerados no proprio Pi e nao sao reutilizaveis aqui.
+# Output goes to dockerbuild/, apart from build/ and rpibuild/: those hold
+# CMake caches made on the Pi itself and cannot be reused here.
 
 set -euo pipefail
 
-IMAGE=nixie-rpi-build:bullseye-3   # bump a tag ao mexer no Dockerfile, senao a imagem velha fica
+IMAGE=nixie-rpi-build:bullseye-3   # bump the tag when the Dockerfile changes, or the old image stays
 PLATFORM=linux/arm/v6
 BUILD_DIR=dockerbuild
-# Compilacoes em paralelo. O qemu emula processo a processo, entao N compiladores
-# simultaneos ocupam N nucleos reais do host -- nada a ver com o nucleo unico do
-# Zero, que so limita quem compila no proprio Pi.
+# qemu emulates per process: N compilers use N real host cores. The Zero's
+# single core only matters when building on the Pi itself.
 JOBS=${JOBS:-$(nproc)}
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -35,43 +34,41 @@ if ! docker info >/dev/null 2>&1; then
         DOCKER=(sudo docker)
     else
         cat >&2 <<'MSG'
-ERRO: sem acesso ao daemon do Docker.
+ERROR: no access to the Docker daemon.
 
-Rode uma vez (pede senha de sudo):
+Run once (asks for the sudo password):
 
     sudo addgroup --system docker
     sudo adduser "$USER" docker
     sudo snap disable docker && sudo snap enable docker
 
-Depois abra um novo terminal (ou rode 'newgrp docker') e tente de novo.
+Then open a new terminal (or run 'newgrp docker') and try again.
 MSG
         exit 1
     fi
 fi
 
-# O Docker instalado via snap e confinado pela interface 'home': ele so enxerga
-# caminhos sob $HOME que nao sejam ocultos. /tmp e ~/.cache, por exemplo, sao
-# invisiveis -- e a falha aparece como "no such file or directory" no contexto
-# de build, o que nao da nenhuma pista do motivo real.
+# Snap Docker is confined to non-hidden paths under $HOME. Anything else (/tmp,
+# ~/.cache) fails as a clueless "no such file or directory" in the build context.
 if "${DOCKER[@]}" info --format '{{.DockerRootDir}}' 2>/dev/null | grep -q '^/var/snap/docker'; then
     case "$PROJECT_DIR/" in
         "$HOME"/*) [[ "${PROJECT_DIR#"$HOME"/}" == .* ]] && {
-            echo "ERRO: o Docker do snap nao acessa diretorios ocultos sob \$HOME." >&2
-            echo "      Mova o projeto para um caminho visivel: $PROJECT_DIR" >&2
+            echo "ERROR: snap Docker cannot reach hidden directories under \$HOME." >&2
+            echo "       Move the project to a visible path: $PROJECT_DIR" >&2
             exit 1
         } ;;
-        *)  echo "ERRO: o Docker do snap so acessa caminhos sob \$HOME ($HOME)." >&2
-            echo "      O projeto esta em $PROJECT_DIR e nao sera visivel." >&2
+        *)  echo "ERROR: snap Docker only reaches paths under \$HOME ($HOME)." >&2
+            echo "       The project is at $PROJECT_DIR and will not be visible." >&2
             exit 1 ;;
     esac
 fi
 
 if [[ ! -e /proc/sys/fs/binfmt_misc/qemu-arm ]]; then
-    echo "ERRO: binfmt qemu-arm nao registrado. Instale qemu-user-binfmt (Ubuntu antigo: qemu-user-static e binfmt-support)." >&2
+    echo "ERROR: binfmt qemu-arm not registered. Install qemu-user-binfmt (older Ubuntu: qemu-user-static and binfmt-support)." >&2
     exit 1
 fi
 
-# ------------------------------------------------------------------ opcoes
+# ----------------------------------------------------------------- options
 
 REBUILD_IMAGE=0
 SHELL_MODE=0
@@ -80,7 +77,7 @@ TARGETS=()
 for arg in "$@"; do
     case "$arg" in
         --clean)
-            echo ">> removendo $PROJECT_DIR/$BUILD_DIR"
+            echo ">> removing $PROJECT_DIR/$BUILD_DIR"
             rm -rf -- "${PROJECT_DIR:?}/$BUILD_DIR"
             exit 0
             ;;
@@ -94,10 +91,10 @@ for arg in "$@"; do
     esac
 done
 
-# ------------------------------------------------------------------ imagem
+# ------------------------------------------------------------------- image
 
 if [[ $REBUILD_IMAGE -eq 1 ]] || ! "${DOCKER[@]}" image inspect "$IMAGE" >/dev/null 2>&1; then
-    echo ">> construindo a imagem $IMAGE (demora: tudo roda emulado)"
+    echo ">> building image $IMAGE (slow: everything is emulated)"
     build_args=(build --platform "$PLATFORM" -t "$IMAGE" -f "$SCRIPT_DIR/Dockerfile" "$SCRIPT_DIR")
     [[ $REBUILD_IMAGE -eq 1 ]] && build_args+=(--no-cache)
     "${DOCKER[@]}" "${build_args[@]}"
@@ -106,7 +103,7 @@ fi
 # -------------------------------------------------------------------- run
 
 run_in_container() {
-    # -it so quando ha terminal: permite rodar em CI / pipe sem quebrar.
+    # -it only with a terminal, so CI and pipes still work.
     local tty_args=()
     [[ -t 0 && -t 1 ]] && tty_args=(-it)
     "${DOCKER[@]}" run --rm "${tty_args[@]}" \
@@ -124,11 +121,9 @@ if [[ $SHELL_MODE -eq 1 ]]; then
     exit 0
 fi
 
-# CMAKE_SKIP_BUILD_RPATH: sem isso o CMake grava RUNPATH=/src/dockerbuild nos
-# binarios -- um caminho que so existe dentro do container. No Pi ele e lixo
-# morto, e a resolucao de liblogger.so passa a depender do fallback para
-# /usr/local/lib. Sem o RUNPATH a resolucao fica explicita (ver update_bins.sh,
-# que instala a lib em /usr/local/lib e roda ldconfig).
+# CMAKE_SKIP_BUILD_RPATH: otherwise CMake bakes RUNPATH=/src/dockerbuild, a path
+# that only exists in the container. liblogger.so is found via ldconfig instead
+# (see update_bins.sh).
 MAKE_TARGETS="${TARGETS[*]:-}"
 
 run_in_container /bin/bash -euo pipefail -c "
@@ -136,10 +131,10 @@ run_in_container /bin/bash -euo pipefail -c "
     make -C /src/$BUILD_DIR -j$JOBS ${MAKE_TARGETS}
 "
 
-# ---------------------------------------------------------------- resultado
+# ------------------------------------------------------------------ result
 
 echo
-echo ">> artefatos em $PROJECT_DIR/$BUILD_DIR:"
+echo ">> artifacts in $PROJECT_DIR/$BUILD_DIR:"
 for f in nixie camera nixie.cgi liblogger.so; do
     p="$PROJECT_DIR/$BUILD_DIR/$f"
     [[ -f "$p" ]] && printf '   %-14s %s\n' "$f" "$(file -b "$p" | cut -d, -f1-2)"

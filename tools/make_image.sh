@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 #
-# Monta, do zero, a imagem de cartao SD do relogio nixie.
+# Builds the nixie clock SD card image from scratch.
 #
-#   ./tools/make_image.sh --password SENHA [opcoes]
+#   ./tools/make_image.sh --password PASSWORD [options]
 #
-# O resultado e build/nixie-clock.img, pronto para o Raspberry Pi Imager
-# ("Use custom image") ou para um dd. O script NAO escreve em nenhum
-# dispositivo: ele so mexe no arquivo de imagem dentro de build/.
+# Output is build/nixie-clock.img, ready for Raspberry Pi Imager
+# ("Use custom image") or dd. The script NEVER writes to a device:
+# it only touches the image file inside build/.
 #
-# O que ele faz, em ordem:
-#   1. baixa o Raspberry Pi OS Bullseye armhf lite e confere o sha256
-#   2. descompacta e cresce a imagem (o rootfs original nao tem folga)
-#   3. compila nixie/camera/nixie.cgi/liblogger.so no container ARM
-#   4. compila o lighttpd 1.4.78 no mesmo container
-#   5. instala as dependencias dentro da imagem, via chroot emulado
-#   6. copia binarios, paginas, scripts, services e configs
-#   7. prepara o primeiro boot (usuario, ssh, wi-fi, config.txt)
+# Steps:
+#   1. download Raspberry Pi OS Bullseye armhf lite and check its sha256
+#   2. unpack and grow the image (the stock rootfs has no headroom)
+#   3. build nixie/camera/nixie.cgi/liblogger.so in the ARM container
+#   4. build lighttpd 1.4.78 in the same container
+#   5. install dependencies inside the image, through an emulated chroot
+#   6. copy binaries, pages, scripts, services and configs
+#   7. prepare first boot (user, ssh, Wi-Fi, config.txt)
 #
-# Por que Bullseye e nao Bookworm: o Pi Zero e ARMv6, e e a ultima versao do
-# Raspberry Pi OS com userland ARMv6. Por que armhf e nao arm64: mesma coisa.
-# Por que lighttpd da fonte e nao do apt: e o que esta no relogio que funciona,
-# compilado com --without-pcre2.
+# Bullseye, not Bookworm: the Pi Zero is ARMv6, and Bullseye is the last
+# Raspberry Pi OS with an ARMv6 userland. armhf, not arm64: same reason.
+# lighttpd from source, not apt: it is what runs on the working clock,
+# built with --without-pcre2.
 
 set -euo pipefail
 
@@ -30,20 +30,18 @@ CACHE_DIR="$BUILD_DIR/cache"
 MNT_BOOT="$BUILD_DIR/mnt/boot"
 MNT_ROOT="$BUILD_DIR/mnt/root"
 
-# ---------------------------------------------------------------- a imagem base
-# Caminho versionado do arquivo: "oldstable" no nome do diretorio e so o rotulo
-# que o site usava quando este build saiu, e nao acompanha o Debian.
+# --------------------------------------------------------------- base image
+# Archived path: "oldstable" is the label the site used back then, not a
+# moving target.
 IMG_URL="https://downloads.raspberrypi.com/raspios_oldstable_lite_armhf/images/raspios_oldstable_lite_armhf-2024-10-28/2024-10-22-raspios-bullseye-armhf-lite.img.xz"
 IMG_XZ="2024-10-22-raspios-bullseye-armhf-lite.img.xz"
 IMG_SHA256="45dd65d579ec2b106a1e3181032144406eab61df892fcd2da8d83382fa4f7e51"
 OUT_IMG="$BUILD_DIR/nixie-clock.img"
 
-# O lighttpd tambem vem de fora, e pelo mesmo caminho da imagem: baixa, confere
-# o sha256, guarda em build/cache. O binario que roda no relogio e compilado
-# desta fonte, nao instalado pelo apt (ver o bloco de build mais abaixo).
-# O nome da imagem de build tem um dono so: o docker/build.sh. Repetir a tag
-# aqui significava que bumpar uma e esquecer a outra passava batido ate o
-# container nao existir -- ou, pior, existir velho.
+# lighttpd follows the same path as the image: download, check sha256, cache
+# in build/cache, then build from source (see step 3).
+# The build image tag has a single owner, docker/build.sh. A second copy here
+# would silently drift -- or, worse, find a stale container.
 BUILD_SH="$PROJECT_DIR/sources/clock/docker/build.sh"
 BUILD_IMAGE=$(sed -n 's/^IMAGE=\([^ \t#]*\).*/\1/p' "$BUILD_SH" | head -1)
 
@@ -54,9 +52,9 @@ LIGHTTPD_URL="https://download.lighttpd.net/lighttpd/releases-1.4.x/$LIGHTTPD_TG
 LIGHTTPD_SHA256="6f1a563a23aafc649a76c40ae009445f327296a0d0c352690fbfedc46aea271d"
 LIGHTTPD_TAR="$CACHE_DIR/$LIGHTTPD_TGZ"
 
-# -------------------------------------------------------------------- opcoes
+# ------------------------------------------------------------------- options
 
-USERNAME=pi            # /home/pi esta hardcoded no codigo (json_parser.cpp, lighttpd.conf)
+USERNAME=pi            # /home/pi is hardcoded (json_parser.cpp, lighttpd.conf)
 PASSWORD=""
 HOSTNAME=nixie
 TIMEZONE="America/Sao_Paulo"
@@ -75,28 +73,28 @@ usage() {
     sed -n '3,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     cat <<'MSG'
 
-Opcoes:
-  --password SENHA     senha do usuario pi (obrigatoria)
-  --hostname NOME      nome da maquina                      (padrao: nixie)
-  --timezone TZ        fuso                                 (padrao: America/Sao_Paulo)
-  --country XX         codigo de pais do wi-fi              (padrao: BR)
-  --wifi-ssid SSID     rede para o primeiro boot; sem ela o
-                       relogio sobe o hotspot "Relogio"
-  --wifi-psk SENHA     senha dessa rede
-  --weather-key CHAVE  chave do weatherapi.com gravada no nixie.json
-  --latitude N         latitude da previsao do tempo
-  --longitude N        longitude da previsao do tempo
-  --grow-mb N          folga a acrescentar no rootfs, em MB  (padrao: 1536)
-  --with-devtools      ja instala o toolchain no cartao, para compilar no
-                       proprio Pi (cresce ~1.2 GB). Sem ela, o leiame.txt
-                       do cartao ensina a instalar depois
-  --compress           gera tambem nixie-clock.img.xz
-  --keep-image         reaproveita build/nixie-clock.img em vez de refazer
-  -h, --help           esta ajuda
+Options:
+  --password PASSWORD  password for user pi (required)
+  --hostname NAME      host name                            (default: nixie)
+  --timezone TZ        time zone                            (default: America/Sao_Paulo)
+  --country XX         Wi-Fi country code                   (default: BR)
+  --wifi-ssid SSID     network for first boot; without it the
+                       clock brings up the "NixieClock" hotspot
+  --wifi-psk PASSWORD  password for that network
+  --weather-key KEY    weatherapi.com key, stored in nixie.json
+  --latitude N         weather forecast latitude
+  --longitude N        weather forecast longitude
+  --grow-mb N          extra rootfs space, in MB            (default: 1536)
+  --with-devtools      preinstall the toolchain, to build on the Pi
+                       itself (~1.2 GB more). Without it, the card's
+                       readme.txt explains how to install it later
+  --compress           also produce nixie-clock.img.xz
+  --keep-image         reuse build/nixie-clock.img instead of rebuilding
+  -h, --help           this help
 
-Nada aqui escreve em /dev/sdX. Para gravar o cartao depois:
+Nothing here writes to /dev/sdX. To flash the card afterwards:
   xzcat build/nixie-clock.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
-  (ou use o Raspberry Pi Imager com "Use custom image")
+  (or use Raspberry Pi Imager with "Use custom image")
 MSG
 }
 
@@ -116,48 +114,45 @@ while [[ $# -gt 0 ]]; do
         --compress)      COMPRESS=1; shift ;;
         --keep-image)    KEEP_IMAGE=1; shift ;;
         -h|--help)       usage; exit 0 ;;
-        *) echo "opcao desconhecida: $1" >&2; usage >&2; exit 1 ;;
+        *) echo "unknown option: $1" >&2; usage >&2; exit 1 ;;
     esac
 done
 
 say()  { printf '\n\033[1;36m>> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m!! %s\033[0m\n' "$*" >&2; }
-die()  { printf '\033[1;31mERRO: %s\033[0m\n' "$*" >&2; exit 1; }
+die()  { printf '\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 
 # ---------------------------------------------------------------- pre-flight
 
-[[ -n "$PASSWORD" ]] || die "--password e obrigatoria (o Bullseye nao cria mais um usuario padrao)."
-[[ -n "$WIFI_SSID" && -z "$WIFI_PSK" ]] && die "--wifi-ssid pede --wifi-psk."
+[[ -n "$PASSWORD" ]] || die "--password is required (Bullseye no longer creates a default user)."
+[[ -n "$WIFI_SSID" && -z "$WIFI_PSK" ]] && die "--wifi-ssid needs --wifi-psk."
 
 for t in curl xz sha256sum truncate sfdisk losetup mount umount rsync openssl docker; do
-    command -v "$t" >/dev/null 2>&1 || die "falta a ferramenta '$t' no host."
+    command -v "$t" >/dev/null 2>&1 || die "missing host tool '$t'."
 done
 
 [[ -e /proc/sys/fs/binfmt_misc/qemu-arm ]] || \
-    die "binfmt qemu-arm nao registrado. Rode: sudo apt-get install -y qemu-user-binfmt (Ubuntu antigo: qemu-user-static binfmt-support)"
+    die "binfmt qemu-arm not registered. Run: sudo apt-get install -y qemu-user-binfmt (older Ubuntu: qemu-user-static binfmt-support)"
 
-# O interpretador e o que o kernel registrou, nao um nome adivinhado: ja foi
-# qemu-arm-static (pacote qemu-user-static) e hoje e qemu-arm, estatico, no
-# qemu-user. Com a flag F o kernel ja o tem carregado; a copia para dentro do
-# chroot so faz falta sem ela, e nao atrapalha com ela.
+# Ask the kernel for the interpreter instead of guessing: it used to be
+# qemu-arm-static, now it is a static qemu-arm. With the F flag the kernel has
+# it preloaded; the copy into the chroot only matters without it.
 QEMU_ARM=$(sed -n 's/^interpreter //p' /proc/sys/fs/binfmt_misc/qemu-arm)
-[[ -x "$QEMU_ARM" ]] || die "o binfmt aponta para '$QEMU_ARM', que nao existe no host."
-[[ -n "$BUILD_IMAGE" ]] || die "nao consegui ler o nome da imagem de build em $BUILD_SH"
+[[ -x "$QEMU_ARM" ]] || die "binfmt points to '$QEMU_ARM', which does not exist on the host."
+[[ -n "$BUILD_IMAGE" ]] || die "could not read the build image name from $BUILD_SH"
 
 if ! docker info >/dev/null 2>&1; then
     sudo -n docker info >/dev/null 2>&1 || \
-        die "sem acesso ao daemon do Docker. Veja as instrucoes em sources/clock/docker/build.sh"
+        die "no access to the Docker daemon. See sources/clock/docker/build.sh"
 fi
 
-say "pedindo sudo adiantado (loop device, mount e chroot precisam de root)"
-sudo -v || die "sudo negado."
+say "asking for sudo up front (loop device, mount and chroot need root)"
+sudo -v || die "sudo denied."
 
 mkdir -p "$CACHE_DIR" "$MNT_BOOT" "$MNT_ROOT"
 
-# ------------------------------------------------------------------ limpeza
-# Um loop device ou um bind mount esquecido para o proximo run do script antes
-# de ele comecar, e deixa o cartao do usuario montado em cima de build/. O trap
-# roda em qualquer saida, inclusive a bem sucedida.
+# ------------------------------------------------------------------ cleanup
+# A leftover loop device or bind mount breaks the next run. Runs on every exit.
 LOOP=""
 cleanup() {
     local rc=$?
@@ -177,64 +172,61 @@ trap cleanup EXIT
 # ------------------------------------------------------------- 1. download
 
 if [[ ! -f "$CACHE_DIR/$IMG_XZ" ]]; then
-    say "baixando $IMG_XZ (~366 MB)"
+    say "downloading $IMG_XZ (~366 MB)"
     curl -fL --progress-bar -o "$CACHE_DIR/$IMG_XZ.part" "$IMG_URL"
     mv "$CACHE_DIR/$IMG_XZ.part" "$CACHE_DIR/$IMG_XZ"
 fi
 
-say "conferindo sha256"
+say "checking sha256"
 echo "$IMG_SHA256  $CACHE_DIR/$IMG_XZ" | sha256sum -c - || \
-    die "sha256 nao confere. Apague $CACHE_DIR/$IMG_XZ e rode de novo."
+    die "sha256 mismatch. Delete $CACHE_DIR/$IMG_XZ and run again."
 
-# Uma copia local em sources/ (de um clone antigo, ou posta a mao por quem
-# compila sem rede) serve de semente para o cache e evita o download.
+# A local copy in sources/ (old clone, or offline build) seeds the cache.
 if [[ ! -f "$LIGHTTPD_TAR" && -f "$PROJECT_DIR/sources/$LIGHTTPD_TGZ" ]]; then
     cp "$PROJECT_DIR/sources/$LIGHTTPD_TGZ" "$LIGHTTPD_TAR"
 fi
 if [[ ! -f "$LIGHTTPD_TAR" ]]; then
-    say "baixando $LIGHTTPD_TGZ"
+    say "downloading $LIGHTTPD_TGZ"
     curl -fL --progress-bar -o "$LIGHTTPD_TAR.part" "$LIGHTTPD_URL"
     mv "$LIGHTTPD_TAR.part" "$LIGHTTPD_TAR"
 fi
 echo "$LIGHTTPD_SHA256  $LIGHTTPD_TAR" | sha256sum -c - || \
-    die "sha256 do lighttpd nao confere. Apague $LIGHTTPD_TAR e rode de novo."
+    die "lighttpd sha256 mismatch. Delete $LIGHTTPD_TAR and run again."
 
-# --------------------------------------------- 2. descompacta e cresce a imagem
+# ------------------------------------------------- 2. unpack and grow image
 
 if [[ $KEEP_IMAGE -eq 1 && -f "$OUT_IMG" ]]; then
-    say "reaproveitando $OUT_IMG (--keep-image)"
+    say "reusing $OUT_IMG (--keep-image)"
 else
-    say "descompactando para $OUT_IMG"
+    say "unpacking to $OUT_IMG"
     rm -f "$OUT_IMG"
     xz -dc "$CACHE_DIR/$IMG_XZ" > "$OUT_IMG"
 
-    say "crescendo a imagem em ${GROW_MB} MB"
+    say "growing the image by ${GROW_MB} MB"
     truncate -s "+${GROW_MB}M" "$OUT_IMG"
-    # A particao 2 e a ultima, entao da para empurrar o fim dela ate o fim do
-    # arquivo sem tocar em mais nada. ",+" no sfdisk quer dizer "todo o resto".
+    # Partition 2 is the last one: stretch it to the end of the file.
+    # ",+" means "all the rest" to sfdisk.
     echo ", +" | sfdisk -N 2 --no-reread --force "$OUT_IMG" >/dev/null
 fi
 
-# -------------------------------------------- 3. compila o que vai no Pi
+# ---------------------------------------------- 3. build what goes on the Pi
 
-say "compilando o relogio no container ARM"
+say "building the clock in the ARM container"
 "$PROJECT_DIR/sources/clock/docker/build.sh"
 
 DOCKERBUILD="$PROJECT_DIR/sources/clock/dockerbuild"
 for f in nixie camera nixie.cgi liblogger.so; do
-    [[ -f "$DOCKERBUILD/$f" ]] || die "o build nao produziu $f"
+    [[ -f "$DOCKERBUILD/$f" ]] || die "the build did not produce $f"
 done
 
 LIGHTTPD_STAGE="$BUILD_DIR/lighttpd-stage"
 if [[ ! -x "$LIGHTTPD_STAGE/usr/local/sbin/lighttpd" ]]; then
-    say "compilando o lighttpd 1.4.78 no container ARM (demora: tudo emulado)"
+    say "building lighttpd 1.4.78 in the ARM container (slow: everything is emulated)"
     rm -rf "$BUILD_DIR/$LIGHTTPD_DIR" "$LIGHTTPD_STAGE"
     tar -xzf "$LIGHTTPD_TAR" -C "$BUILD_DIR"
-    # Mesma imagem e mesmo usuario do build do relogio, para os artefatos
-    # sairem com o dono certo e linkados contra a mesma glibc. Isso roda
-    # antes de a imagem ser montada: o bind de $PROJECT_DIR no container
-    # nao pode pegar build/mnt com o cartao montado embaixo.
-    # --without-pcre2 e o que esta no config.status do relogio que funciona.
+    # Same image and user as the clock build: right owner, same glibc.
+    # Runs before mounting, so the $PROJECT_DIR bind never sees build/mnt.
+    # --without-pcre2 matches config.status on the working clock.
     DOCKER=(docker); docker info >/dev/null 2>&1 || DOCKER=(sudo docker)
     "${DOCKER[@]}" run --rm \
         --platform linux/arm/v6 \
@@ -243,97 +235,90 @@ if [[ ! -x "$LIGHTTPD_STAGE/usr/local/sbin/lighttpd" ]]; then
         -e HOME=/tmp \
         "$BUILD_IMAGE" \
         /bin/bash -euo pipefail -c "
-            # O tarball oficial do 1.4.78 vem sem o ./configure: traz
-            # configure.ac e autogen.sh, e o autoreconf e que gera o resto.
+            # The 1.4.78 tarball ships no ./configure, only autogen.sh.
             ./autogen.sh
             ./configure --prefix=/usr/local --without-pcre2 >/dev/null
             make -j\$(nproc) >/dev/null
             make install DESTDIR=/src/build/lighttpd-stage >/dev/null
         "
 else
-    say "lighttpd ja compilado em build/lighttpd-stage"
+    say "lighttpd already built in build/lighttpd-stage"
 fi
-[[ -x "$LIGHTTPD_STAGE/usr/local/sbin/lighttpd" ]] || die "o lighttpd nao foi compilado"
+[[ -x "$LIGHTTPD_STAGE/usr/local/sbin/lighttpd" ]] || die "lighttpd was not built"
 
-# -------------------------------------------------- 4. monta a imagem
+# ----------------------------------------------------- 4. mount the image
 
-say "abrindo a imagem em um loop device"
+say "attaching the image to a loop device"
 LOOP=$(sudo losetup --find --show --partscan "$OUT_IMG")
-[[ -b "${LOOP}p1" && -b "${LOOP}p2" ]] || die "o kernel nao expos as particoes de $LOOP"
+[[ -b "${LOOP}p1" && -b "${LOOP}p2" ]] || die "the kernel did not expose the partitions of $LOOP"
 
-sudo e2fsck -pf "${LOOP}p2" >/dev/null || true   # resize2fs exige fsck limpo
+sudo e2fsck -pf "${LOOP}p2" >/dev/null || true   # resize2fs wants a clean fsck
 sudo resize2fs "${LOOP}p2" >/dev/null
 
 sudo mount "${LOOP}p2" "$MNT_ROOT"
 sudo mount "${LOOP}p1" "$MNT_BOOT"
 df -h --output=target,size,avail "$MNT_ROOT" "$MNT_BOOT" | sed 's/^/   /'
 
-# ------------------------------------------- 5. chroot emulado para o apt
+# ---------------------------------------------- 5. emulated chroot for apt
 
-say "preparando o chroot emulado"
-# no mesmo caminho do host, que e onde o kernel vai procurar sem a flag F
+say "preparing the emulated chroot"
+# same path as on the host: where the kernel looks without the F flag
 QEMU_IN_IMAGE=0
 if ! sudo test -e "$MNT_ROOT$QEMU_ARM"; then
     sudo install -D -m755 "$QEMU_ARM" "$MNT_ROOT$QEMU_ARM"
     QEMU_IN_IMAGE=1
 fi
-# O Raspbian pre-carrega libarmmem via /etc/ld.so.preload. Sob qemu isso faz
-# todo binario do chroot morrer com "cannot be preloaded", e a mensagem nao
-# diz nada sobre a causa. Sai do caminho e volta no fim.
+# Raspbian preloads libarmmem via /etc/ld.so.preload, which kills every chroot
+# binary under qemu with "cannot be preloaded". Moved aside, restored at the end.
 if sudo test -f "$MNT_ROOT/etc/ld.so.preload"; then
     sudo mv "$MNT_ROOT/etc/ld.so.preload" "$MNT_ROOT/etc/ld.so.preload.disabled"
 fi
-# O chroot compartilha a rede do host, entao o resolv.conf do host serve --
-# inclusive o stub 127.0.0.53 do systemd-resolved. O original volta no fim
-# para a imagem nao sair com o DNS de quem a gerou.
+# The chroot shares the host network, so the host resolv.conf works. The
+# original is restored so the image does not ship the builder's DNS.
 sudo cp -a "$MNT_ROOT/etc/resolv.conf" "$MNT_ROOT/etc/resolv.conf.img" 2>/dev/null || true
 sudo cp -L /etc/resolv.conf "$MNT_ROOT/etc/resolv.conf"
 sudo mount -t proc  none  "$MNT_ROOT/proc"
 sudo mount -t sysfs none  "$MNT_ROOT/sys"
 sudo mount --bind /dev     "$MNT_ROOT/dev"
 sudo mount --bind /dev/pts "$MNT_ROOT/dev/pts"
-# O /boot do sistema alvo e a particao 1; o lighttpd nao liga, mas o
-# rpi-eeprom e o dphys-swapfile dos postinst do apt ligam.
+# rpi-eeprom and dphys-swapfile postinst scripts need /boot (partition 1).
 sudo mount --bind "$MNT_BOOT" "$MNT_ROOT/boot"
 
 in_chroot() { sudo chroot "$MNT_ROOT" /bin/bash -euo pipefail -c "$1"; }
 
-# Os postinst de dnsmasq e hostapd tentam subir o servico; dentro do chroot nao
-# ha systemd rodando, e o invoke-rc.d falharia e abortaria o apt.
+# dnsmasq and hostapd postinst try to start the service; with no systemd in the
+# chroot invoke-rc.d would fail and abort apt.
 sudo tee "$MNT_ROOT/usr/sbin/policy-rc.d" >/dev/null <<'EOF'
 #!/bin/sh
 exit 101
 EOF
 sudo chmod +x "$MNT_ROOT/usr/sbin/policy-rc.d"
 
-# Runtime, nao -dev: quem compila e o container, nao o Pi. Os pacotes -dev
-# so entram com --with-devtools, para quem quiser compilar no proprio relogio.
-# A lista sai do "readelf -d" dos tres binarios, nao de um chute: camera pede
-# videoio/objdetect/imgproc/core, nixie pede pigpio e curl, nixie.cgi nada.
-# imgcodecs entra porque videoio depende dele (e porque EXPORT_FACE_JPG, em
-# defines.h, grava jpg quando ligado). highgui fica de fora de proposito:
-# arrastaria GTK e X11 para dentro de uma imagem Lite.
+# Runtime only: the container builds, not the Pi. -dev packages come with
+# --with-devtools. List taken from "readelf -d" of the three binaries:
+# camera needs videoio/objdetect/imgproc/core, nixie needs pigpio and curl.
+# imgcodecs: videoio depends on it (and EXPORT_FACE_JPG writes jpgs).
+# No highgui on purpose: it drags GTK and X11 into a Lite image.
 PKGS_RUNTIME="libopencv-videoio4.5 libopencv-objdetect4.5 libopencv-imgproc4.5 \
 libopencv-core4.5 libopencv-imgcodecs4.5 \
 libcurl4 libpigpio1 pigpio pigpio-tools dnsmasq hostapd i2c-tools"
 PKGS_DEV="build-essential cmake pkg-config git libopencv-dev libcurl4-openssl-dev libpigpio-dev"
 
-say "instalando as dependencias dentro da imagem (emulado, pode demorar)"
-# Acquire::Retries pelo mesmo motivo do Dockerfile: sao centenas de MB vindos
-# do archive.raspbian.org, e uma conexao resetada no meio perde tudo.
+say "installing dependencies inside the image (emulated, may take a while)"
+# Acquire::Retries: same reason as in the Dockerfile.
 in_chroot "export DEBIAN_FRONTEND=noninteractive
            apt-get update
            apt-get -o Acquire::Retries=5 install -y --no-install-recommends $PKGS_RUNTIME"
 
 if [[ $WITH_DEVTOOLS -eq 1 ]]; then
-    say "instalando tambem o toolchain (--with-devtools)"
+    say "installing the toolchain too (--with-devtools)"
     in_chroot "export DEBIAN_FRONTEND=noninteractive
                apt-get -o Acquire::Retries=5 install -y --no-install-recommends $PKGS_DEV"
 fi
 
-# ------------------------------------------------------ 6. copia o projeto
+# -------------------------------------------------------- 6. copy the project
 
-say "copiando o relogio para /home/pi"
+say "copying the clock to /home/pi"
 HOME_PI="$MNT_ROOT/home/$USERNAME"
 sudo mkdir -p "$HOME_PI/nixiepi" "$HOME_PI/www"
 
@@ -342,27 +327,26 @@ sudo install -m755 "$DOCKERBUILD/camera" "$HOME_PI/nixiepi/camera"
 sudo install -m755 "$PROJECT_DIR/nixiepi/services.sh"   "$HOME_PI/nixiepi/services.sh"
 sudo install -m755 "$PROJECT_DIR/nixiepi/update_bins.sh" "$HOME_PI/nixiepi/update_bins.sh"
 
-# As cascatas. Qual delas a camera usa se escolhe na aba Deteccao do site
-# (detection.face_cascade no nixie.json); o padrao e o LBP melhorado.
+# Face cascades. Picked in the site's Detection tab
+# (detection.face_cascade in nixie.json); default is the improved LBP.
 for x in haarcascade_frontalface_default.xml lbpcascade_frontalface.xml \
          lbpcascade_frontalface_improved.xml; do
     sudo install -m644 "$PROJECT_DIR/nixiepi/$x" "$HOME_PI/nixiepi/$x"
 done
 
-say "copiando o site"
-# -a preserva symlinks como symlinks, que e o que www/logs/nixie.txt precisa ser.
+say "copying the web site"
+# -a keeps symlinks, which www/logs/nixie.txt must stay.
 sudo rsync -a --delete \
     --exclude '.idea/' --exclude 'json/nixie.json' \
     "$PROJECT_DIR/www/" "$HOME_PI/www/"
 sudo install -d -m755 "$HOME_PI/www/cgi-bin" "$HOME_PI/www/json" "$HOME_PI/www/logs"
-# A aba "Logs" do site busca logs/nixie.txt como arquivo estatico; o log de
-# verdade e /tmp/nixie.txt, escrito pela liblogger. O link e o que liga os dois.
+# The "Logs" tab fetches logs/nixie.txt; liblogger writes /tmp/nixie.txt.
 sudo ln -sfn /tmp/nixie.txt "$HOME_PI/www/logs/nixie.txt"
 sudo install -m755 "$DOCKERBUILD/nixie.cgi" "$HOME_PI/www/cgi-bin/nixie.cgi"
 
-# O nixie.json que vai para o cartao sai SEMPRE do modelo publicavel, nunca do
-# nixie.json local -- que e a configuracao da casa de quem esta compilando.
-say "gravando a configuracao inicial"
+# The card's nixie.json ALWAYS comes from the template, never from the local
+# nixie.json -- that one is the builder's home config.
+say "writing the initial configuration"
 TMP_JSON=$(mktemp)
 cp "$PROJECT_DIR/www/json/nixie.default.json" "$TMP_JSON"
 WEATHER_KEY="$WEATHER_KEY" LATITUDE="$LATITUDE" LONGITUDE="$LONGITUDE" \
@@ -379,9 +363,8 @@ json.dump(d, open(p, 'w'), indent='\t', ensure_ascii=False)
 PY
 sudo install -m644 "$TMP_JSON" "$HOME_PI/www/json/nixie.json"
 
-# Os servidores NTP da pagina so valem pelo systemd-timesyncd: o relogio le a
-# hora do sistema e nada mais. O nixie.cgi reescreve este arquivo quando alguem
-# salva a aba NTP; aqui ele nasce com os mesmos servidores do nixie.json.
+# The clock reads system time; NTP servers only matter to systemd-timesyncd.
+# nixie.cgi rewrites this file from the NTP tab; it starts from nixie.json.
 NTP_SERVERS=$(python3 -c '
 import json, sys
 n = json.load(open(sys.argv[1])).get("ntp", {})
@@ -391,36 +374,31 @@ sudo install -d -m755 "$MNT_ROOT/etc/systemd/timesyncd.conf.d"
 printf '# Written by the clock'"'"'s web page (nixie.cgi). Edits here are overwritten.\n[Time]\nNTP=%s\n' \
     "$NTP_SERVERS" | sudo tee "$MNT_ROOT/etc/systemd/timesyncd.conf.d/nixie.conf" >/dev/null
 
-# O relogio abre /home/pi/nixie.json em alguns lugares; no cartao que funciona
-# isso e um link para o arquivo de verdade.
+# Some code opens /home/pi/nixie.json; on the working card it is a link.
 sudo ln -sfn www/json/nixie.json "$HOME_PI/nixie.json"
 
-sudo install -m644 "$PROJECT_DIR/leiame.txt" "$HOME_PI/leiame.txt"
+sudo install -m644 "$PROJECT_DIR/readme.txt" "$HOME_PI/readme.txt"
 
-# O cartao tem de se bastar: quem so tem o relogio na mao precisa dos fontes
-# para compilar e do projeto/ para consertar o hardware. Os fontes vao sempre;
-# --with-devtools decide apenas se o toolchain ja vem instalado (o leiame.txt
-# ensina a instalar depois). O update_bins.sh procura os binarios em
-# sources/clock/dockerbuild, para onde aponta o rsync do fluxo de atualizacao.
-say "copiando os fontes e o projeto para o cartao"
-# Antes do rsync: ele so cria o ultimo diretorio do destino, e /home/pi/sources
-# nao existe na imagem base. O install -d cria a arvore inteira.
+# The card is self-sufficient: sources to rebuild, projeto/ to fix the hardware.
+# --with-devtools only decides whether the toolchain comes preinstalled.
+# update_bins.sh looks for binaries in sources/clock/dockerbuild.
+say "copying sources and projeto/ to the card"
+# rsync only creates the last directory, and /home/pi/sources does not exist yet.
 sudo install -d -m755 "$HOME_PI/sources/clock/dockerbuild"
 sudo rsync -a --exclude '.git/' --exclude '.idea/' --exclude '.vscode/' \
     --exclude 'build/' --exclude 'rpibuild/' --exclude 'dockerbuild/' \
     --exclude 'docs/' \
     "$PROJECT_DIR/sources/clock/" "$HOME_PI/sources/clock/"
-# ~100 MB de esquemas, datasheets e fotos; cabe folgado no --grow-mb padrao.
+# ~100 MB of schematics, datasheets and photos; fits the default --grow-mb.
 sudo rsync -a "$PROJECT_DIR/projeto/" "$HOME_PI/projeto/"
 
-say "instalando as bibliotecas e o lighttpd em /usr/local"
+say "installing libraries and lighttpd into /usr/local"
 sudo install -m755 "$DOCKERBUILD/liblogger.so" "$MNT_ROOT/usr/local/lib/liblogger.so"
 sudo cp -a "$LIGHTTPD_STAGE/usr/local/." "$MNT_ROOT/usr/local/"
-# O "make install" do lighttpd rodou no container com o uid do host, e o cp -a
-# preserva isso. No cartao que funciona /usr/local e todo root:root.
+# make install ran with the host uid and cp -a kept it; /usr/local is root:root.
 sudo chown -R 0:0 "$MNT_ROOT/usr/local"
 
-say "instalando scripts e services"
+say "installing scripts and services"
 for s in check_ssid.sh check_wifi_or_hotspot.sh http.sh; do
     sudo install -m755 "$PROJECT_DIR/sources/scripts/usr/local/bin/$s" "$MNT_ROOT/usr/local/bin/$s"
 done
@@ -433,61 +411,52 @@ sudo install -m644 "$PROJECT_DIR/sources/configs/etc/dhcpcd.conf"  "$MNT_ROOT/et
 sudo install -d -m755 "$MNT_ROOT/etc/hostapd"
 sudo install -m600 "$PROJECT_DIR/sources/configs/etc/hostapd/hostapd.conf" "$MNT_ROOT/etc/hostapd/hostapd.conf"
 sudo install -m644 "$PROJECT_DIR/sources/configs/etc/default/hostapd" "$MNT_ROOT/etc/default/hostapd"
-# O "allow-hotplug wlan0" nao e padrao da imagem; esta assim no relogio que
-# funciona, e reproduzir e mais barato do que descobrir na bancada que faz falta.
+# "allow-hotplug wlan0" is not stock, but the working clock has it.
 sudo install -m644 "$PROJECT_DIR/sources/configs/etc/network/interfaces" "$MNT_ROOT/etc/network/interfaces"
 
-# ---------------------------------------------------- 7. habilita os servicos
+# ------------------------------------------------------ 7. enable services
 
-say "habilitando os servicos"
-# lighttpd-custom.service fica instalado e DESLIGADO de proposito: quem sobe o
-# servidor e a ultima linha do check_wifi_or_hotspot.sh, depois de decidir
-# entre wi-fi e hotspot. Ligar os dois poe duas instancias na porta 80.
-# SYSTEMD_OFFLINE=1: o systemctl detecta chroot sozinho na maioria das versoes,
-# mas quando nao detecta ele tenta falar com o bus e falha com uma mensagem que
-# nao tem nada a ver ("Failed to connect to bus"). Aqui so queremos os symlinks.
+say "enabling services"
+# lighttpd-custom.service stays DISABLED on purpose: check_wifi_or_hotspot.sh
+# starts the server after choosing Wi-Fi or hotspot. Both would fight for port 80.
+# SYSTEMD_OFFLINE=1: when systemctl misses the chroot it fails with an unrelated
+# "Failed to connect to bus". Only the symlinks are wanted here.
 in_chroot "SYSTEMD_OFFLINE=1 systemctl enable nixie.service camera.service wifi-check.service check_ssid.service" \
-    || die "systemctl enable falhou; o cartao subiria sem o relogio."
+    || die "systemctl enable failed; the card would boot without the clock."
 in_chroot "SYSTEMD_OFFLINE=1 systemctl disable lighttpd-custom.service" 2>/dev/null || true
-# hostapd e dnsmasq sobem sob demanda, dentro do check_wifi_or_hotspot.sh.
-# Desabilitados, nao mascarados: mascarar impediria o proprio script de subi-los.
+# hostapd and dnsmasq start on demand from check_wifi_or_hotspot.sh.
+# Disabled, not masked: masking would stop the script too.
 in_chroot "SYSTEMD_OFFLINE=1 systemctl disable hostapd dnsmasq" 2>/dev/null || true
 in_chroot "SYSTEMD_OFFLINE=1 systemctl unmask hostapd dnsmasq" 2>/dev/null || true
 in_chroot "ldconfig"
 
-# A prova de que a lista de pacotes acima esta completa: se faltou uma lib, o
-# relogio so descobriria no primeiro boot, num Pi, sem tela. Aqui descobre agora.
-say "conferindo que tudo linka dentro da imagem"
+# Proof the package list is complete: better now than on first boot, headless.
+say "checking that everything links inside the image"
 missing=$(in_chroot '
     for b in /home/pi/nixiepi/nixie /home/pi/nixiepi/camera \
              /home/pi/www/cgi-bin/nixie.cgi /usr/local/sbin/lighttpd; do
-        # o || true e obrigatorio: sem match, o grep sai 1, e com pipefail
-        # isso abortaria o laco no primeiro binario que estivesse correto
+        # || true: grep exits 1 on no match, and pipefail would abort the loop
         ldd "$b" 2>/dev/null | grep "not found" | sed "s|^|  $b: |" || true
     done') || true
 if [[ -n "$missing" ]]; then
     echo "$missing" >&2
-    die "ha bibliotecas faltando na imagem (veja acima)."
+    die "missing libraries in the image (see above)."
 fi
-echo "   nixie, camera, nixie.cgi e lighttpd: todas as libs resolvidas."
+echo "   nixie, camera, nixie.cgi and lighttpd: all libraries resolved."
 
-# ------------------------------------------------ 8. primeiro boot e hardware
+# ------------------------------------------------- 8. first boot and hardware
 
-say "configurando o primeiro boot"
+say "configuring first boot"
 
-# O Bullseye nao cria mais um usuario padrao: sem userconf.txt o sistema sobe e
-# fica esperando alguem no console. Mas /home/pi esta hardcoded no codigo, e os
-# arquivos ja foram copiados para la -- entao o uid/gid tem de bater com o que
-# o firstboot vai criar, que e 1000:1000.
+# Bullseye has no default user: without userconf.txt it waits on the console.
+# /home/pi is hardcoded and already populated, so uid/gid must be 1000:1000.
 HASH=$(openssl passwd -6 "$PASSWORD")
 
-# O /usr/lib/userconf-pi/userconf do Raspberry Pi OS RENOMEIA o usuario de uid
-# 1000 que ja vem na imagem -- ele nao cria nenhum. Como o nome alvo e o mesmo
-# que a imagem traz, sobra so o chpasswd. Se um dia a imagem base deixar de
-# trazer esse usuario, o userconf.txt viraria no-op e o cartao subiria sem
-# login nenhum: por isso a checagem abaixo, que cria o usuario na mao.
+# userconf-pi RENAMES the existing uid 1000 user, it never creates one. Should
+# the base image drop that user, userconf.txt would be a no-op and the card
+# would boot with no login at all -- hence the check below.
 if ! in_chroot "getent passwd 1000 >/dev/null"; then
-    warn "a imagem base nao traz usuario de uid 1000; criando '$USERNAME' aqui."
+    warn "the base image has no uid 1000 user; creating '$USERNAME' here."
     in_chroot "groupadd -g 1000 '$USERNAME'
                useradd -u 1000 -g 1000 -M -d '/home/$USERNAME' -s /bin/bash '$USERNAME'
                usermod -aG adm,sudo,video,audio,plugdev,gpio,i2c,spi,netdev '$USERNAME' || true"
@@ -495,20 +464,18 @@ fi
 printf '%s:%s\n' "$USERNAME" "$HASH" | sudo tee "$MNT_BOOT/userconf.txt" >/dev/null
 sudo chmod 600 "$MNT_BOOT/userconf.txt"
 
-# /home/pi ja existe na imagem base; o que importa e que tudo que copiamos para
-# dentro dele pertenca ao uid que vai fazer login.
+# Everything copied into /home/pi must belong to the login uid.
 sudo chown -R 1000:1000 "$HOME_PI"
 
-sudo touch "$MNT_BOOT/ssh"                       # ssh ligado desde o primeiro boot
+sudo touch "$MNT_BOOT/ssh"                       # ssh on from first boot
 echo "$HOSTNAME" | sudo tee "$MNT_ROOT/etc/hostname" >/dev/null
 sudo sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$HOSTNAME/" "$MNT_ROOT/etc/hosts"
 echo "$TIMEZONE" | sudo tee "$MNT_ROOT/etc/timezone" >/dev/null
 sudo ln -sfn "/usr/share/zoneinfo/$TIMEZONE" "$MNT_ROOT/etc/localtime"
 
 if [[ -n "$WIFI_SSID" ]]; then
-    say "gravando a rede wi-fi inicial"
-    # Mesmo formato que o nixie.cpp escreve quando alguem salva pela pagina web
-    # (wifi.cpp), para o check_ssid.sh achar o ssid do mesmo jeito nos dois casos.
+    say "writing the initial Wi-Fi network"
+    # Same format wifi.cpp writes, so check_ssid.sh parses both alike.
     sudo install -d -m755 "$MNT_ROOT/etc/wpa_supplicant"
     sudo tee "$MNT_ROOT/etc/wpa_supplicant/wpa_supplicant.conf" >/dev/null <<EOF
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -524,16 +491,16 @@ network={
 EOF
     sudo chmod 600 "$MNT_ROOT/etc/wpa_supplicant/wpa_supplicant.conf"
 else
-    warn "sem --wifi-ssid: o relogio vai subir o hotspot 'Relogio' e mostrar 192.168.4.1 nas valvulas."
+    warn "no --wifi-ssid: the clock will bring up the 'NixieClock' hotspot and show 192.168.4.1 on the tubes."
 fi
 
 sudo sed -i "s/^country_code=.*/country_code=$COUNTRY/" "$MNT_ROOT/etc/hostapd/hostapd.conf"
 
-say "ajustando config.txt e modulos"
-# Idempotente: o bloco so entra uma vez, e so o que nao e padrao do Bullseye.
-#   i2c_arm + i2c-dev + i2c-rtc : o DS3231, que segura a hora quando falta luz
-#   gpu_mem/start_x            : como esta no relogio que funciona
-#   enable_uart                : console serial, util quando nao ha rede
+say "adjusting config.txt and modules"
+# Idempotent; only what Bullseye does not set by default.
+#   i2c_arm + i2c-dev + i2c-rtc : the DS3231 keeps time through power cuts
+#   gpu_mem/start_x            : as on the working clock
+#   enable_uart                : serial console, for when there is no network
 if ! sudo grep -q '^# --- nixie clock ---' "$MNT_BOOT/config.txt"; then
     sudo tee -a "$MNT_BOOT/config.txt" >/dev/null <<'EOF'
 
@@ -548,19 +515,18 @@ fi
 sudo grep -qx 'i2c-dev' "$MNT_ROOT/etc/modules" || \
     echo 'i2c-dev' | sudo tee -a "$MNT_ROOT/etc/modules" >/dev/null
 
-# Compilar OpenCV num Zero com 512 MB precisa de swap; o cartao que funciona
-# esta em 512 MB. Sem --with-devtools nada aqui compila, mas o custo e zero.
+# Building OpenCV on a 512 MB Zero needs swap. Free without --with-devtools.
 sudo sed -i 's/^CONF_SWAPSIZE=.*/CONF_SWAPSIZE=512/' "$MNT_ROOT/etc/dphys-swapfile"
 
-# ---------------------------------------------------------------- 9. fecha
+# ---------------------------------------------------------------- 9. finish
 
-say "desmontando"
+say "unmounting"
 sudo rm -f "$MNT_ROOT/usr/sbin/policy-rc.d"
 [[ $QEMU_IN_IMAGE -eq 1 ]] && sudo rm -f "$MNT_ROOT$QEMU_ARM"
 if sudo test -e "$MNT_ROOT/etc/resolv.conf.img"; then
     sudo mv "$MNT_ROOT/etc/resolv.conf.img" "$MNT_ROOT/etc/resolv.conf"
 else
-    sudo truncate -s 0 "$MNT_ROOT/etc/resolv.conf"   # o dhcpcd reescreve no boot
+    sudo truncate -s 0 "$MNT_ROOT/etc/resolv.conf"   # dhcpcd rewrites it on boot
 fi
 if sudo test -f "$MNT_ROOT/etc/ld.so.preload.disabled"; then
     sudo mv "$MNT_ROOT/etc/ld.so.preload.disabled" "$MNT_ROOT/etc/ld.so.preload"
@@ -571,23 +537,23 @@ sudo umount "$MNT_BOOT" "$MNT_ROOT"
 sudo losetup -d "$LOOP"; LOOP=""
 
 if [[ $COMPRESS -eq 1 ]]; then
-    say "compactando (demora)"
+    say "compressing (slow)"
     xz -T0 -9 -kf "$OUT_IMG"
 fi
 
-say "pronto"
+say "done"
 cat <<MSG
 
-   imagem : $OUT_IMG  ($(du -h "$OUT_IMG" | cut -f1))
+   image  : $OUT_IMG  ($(du -h "$OUT_IMG" | cut -f1))
 $( [[ $COMPRESS -eq 1 ]] && echo "   .xz    : $OUT_IMG.xz  ($(du -h "$OUT_IMG.xz" | cut -f1))" )
-   usuario: $USERNAME   hostname: $HOSTNAME   fuso: $TIMEZONE
-   wi-fi  : ${WIFI_SSID:-<nenhuma: sobe o hotspot 'Relogio'>}
-   previsao do tempo: $( [[ -n "$WEATHER_KEY" ]] && echo "chave gravada" || echo "sem chave -- cadastre em Localizacao, no site do relogio" )
+   user   : $USERNAME   hostname: $HOSTNAME   timezone: $TIMEZONE
+   Wi-Fi  : ${WIFI_SSID:-<none: brings up the 'NixieClock' hotspot>}
+   weather: $( [[ -n "$WEATHER_KEY" ]] && echo "key stored" || echo "no key -- set it in the Location tab of the clock's site" )
 
-   Gravar o cartao:
+   Flash the card:
      sudo dd if=$OUT_IMG of=/dev/sdX bs=4M conv=fsync status=progress
-     ...ou Raspberry Pi Imager -> "Use custom image"
+     ...or Raspberry Pi Imager -> "Use custom image"
 
-   ATENCAO: confira o /dev/sdX com 'lsblk' antes. Este script nunca grava em
-   dispositivo nenhum justamente para que essa escolha seja sempre sua.
+   WARNING: check /dev/sdX with 'lsblk' first. This script never writes to
+   a device precisely so that choice is always yours.
 MSG

@@ -106,7 +106,7 @@ static bool read_int_field(const char *_field, const char *_label, long _min, lo
     while(isspace(static_cast<unsigned char>(*end)))
         end++;
     if(end == value || *end != '\0' || errno == ERANGE || parsed < _min || parsed > _max)
-        return fail("%s: use um número inteiro de %ld a %ld.", _label, _min, _max);
+        return fail("%s: enter a whole number from %ld to %ld.", _label, _min, _max);
     *_out = static_cast<int>(parsed);
     return true;
 }
@@ -127,7 +127,7 @@ static bool read_double_field(const char *_field, const char *_label, double _mi
     while(isspace(static_cast<unsigned char>(*end)))
         end++;
     if(end == value || *end != '\0' || errno == ERANGE || !std::isfinite(parsed) || parsed < _min || parsed > _max)
-        return fail("%s: use um número de %g a %g.", _label, _min, _max);
+        return fail("%s: enter a number from %g to %g.", _label, _min, _max);
     *_out = parsed;
     return true;
 }
@@ -141,8 +141,8 @@ static bool read_text_field(const char *_field, const char *_label, size_t _min,
     if(length < _min || length > _max || length >= _size)
     {
         if(_min == 0)
-            return fail("%s: no máximo %zu caracteres.", _label, _max);
-        return fail("%s: de %zu a %zu caracteres.", _label, _min, _max);
+            return fail("%s: at most %zu characters.", _label, _max);
+        return fail("%s: %zu to %zu characters.", _label, _min, _max);
     }
     memcpy(_out, value, length + 1);
     return true;
@@ -292,10 +292,10 @@ static bool process_maps()
     char apikey[64];
     if(!read_double_field("latitude", "Latitude", -90, 90, &latitude) ||
        !read_double_field("longitude", "Longitude", -180, 180, &longitude) ||
-       !read_text_field("apikey", "Chave da API", 0, 63, apikey, sizeof(apikey)))
+       !read_text_field("apikey", "API key", 0, 63, apikey, sizeof(apikey)))
         return false;
     if(!is_alnum(apikey))
-        return fail("Chave da API: só letras e números.");
+        return fail("API key: letters and digits only.");
 
     cJSON *j = ensure_object(mJson, "maps");
     set_number(j, "latitude", latitude);
@@ -317,36 +317,36 @@ static bool process_maps()
 static bool process_wifi()
 {
     char ssid[33], password[64], confirm[64];
-    if(!read_text_field("wifiSSID", "Nome da rede", 1, 32, ssid, sizeof(ssid)) ||
-       !read_text_field("wifiPassword", "Senha", 8, 63, password, sizeof(password)) ||
-       !read_text_field("confirmPassword", "Confirmação da senha", 8, 63, confirm, sizeof(confirm)))
+    if(!read_text_field("wifiSSID", "Network name", 1, 32, ssid, sizeof(ssid)) ||
+       !read_text_field("wifiPassword", "Password", 8, 63, password, sizeof(password)) ||
+       !read_text_field("confirmPassword", "Password confirmation", 8, 63, confirm, sizeof(confirm)))
         return false;
     if(strcmp(password, confirm) != 0)
-        return fail("Senhas não conferem.");
+        return fail("Passwords do not match.");
     if(!is_wpa_safe(ssid) || !is_wpa_safe(password))
-        return fail("Aspas, barra invertida e quebras de linha não são aceitas no nome da rede nem na senha.");
+        return fail("Quotes, backslashes and line breaks are not allowed in the network name or password.");
 
     sWifiConfig current{};
     load_wifi_config(&current);
     if(strcmp(current.ssid, ssid) == 0 && strcmp(current.password, password) == 0)
-        return fail("Nada mudou: essa rede e essa senha já estão gravadas.");
+        return fail("Nothing changed: this network and password are already stored.");
 
     cJSON *j = ensure_object(mJson, "wifi");
     set_string(j, "ssid", ssid);
     set_string(j, "password", password);
 
     queue_signal("nixie", SIG_CGI_WIFI);
-    say("Configuração salva. O relógio vai reiniciar e procurar a rede %s.", ssid);
+    say("Configuration saved. The clock will restart and look for network %s.", ssid);
     return true;
 }
 
 static bool process_ntp()
 {
     char timezone[64];
-    if(!read_text_field("timezone", "Fuso horário", 1, 63, timezone, sizeof(timezone)))
+    if(!read_text_field("timezone", "Time zone", 1, 63, timezone, sizeof(timezone)))
         return false;
     if(!is_timezone(timezone))
-        return fail("Fuso horário desconhecido: %s.", timezone);
+        return fail("Unknown time zone: %s.", timezone);
 
     char servers[4][64];
     int count = 0;
@@ -360,11 +360,11 @@ static bool process_ntp()
         if(servers[i][0] == '\0')
             continue;
         if(!is_host(servers[i]))
-            return fail("%s: só letras, números, ponto e traço.", label);
+            return fail("%s: letters, digits, dots and dashes only.", label);
         count++;
     }
     if(count == 0)
-        return fail("Cadastre pelo menos um servidor NTP.");
+        return fail("Enter at least one NTP server.");
 
     char current[64] = "";
     current_timezone(current, sizeof(current));
@@ -372,10 +372,10 @@ static bool process_ntp()
     {
         const char *const argv[] = {TIMEDATECTL, "set-timezone", timezone, nullptr};
         if(!run(argv))
-            return fail("Não consegui trocar o fuso para %s.", timezone);
+            return fail("Could not change the time zone to %s.", timezone);
     }
     if(!apply_ntp_servers(servers))
-        return fail("Não consegui configurar os servidores no systemd-timesyncd.");
+        return fail("Could not configure the servers in systemd-timesyncd.");
 
     cJSON *j = ensure_object(mJson, "ntp");
     for(int i = 0; i < 4; i++)
@@ -397,28 +397,28 @@ static bool process_detection()
 {
     const char *model = get_field_value("model");
     if(strcmp(model, "face") != 0 && strcmp(model, "motion") != 0 && strcmp(model, "both") != 0)
-        return fail("Escolha rosto, movimento ou ambos.");
+        return fail("Choose face, motion or both.");
     char model_copy[16];
     snprintf(model_copy, sizeof(model_copy), "%s", model);
 
     enumFaceCascade cascade = FACE_CASCADE_LBP_IMPROVED;
     if(!face_cascade_from_name(get_field_value("face_cascade"), &cascade))
-        return fail("Escolha um dos detectores de rosto da lista.");
+        return fail("Choose one of the face detectors in the list.");
 
     int on_timeout = 0, threshold = 0, face_size_min = 0, face_size_max = 0, fps = 0;
     int face_min_neighbors = 0, face_min_consecutive = 0;
     double face_scale_factor = 0;
-    if(!read_int_field("on_timeout", "Tempo aceso", 5, 3600, &on_timeout) ||
-       !read_int_field("threshold", "Limiar de movimento", 1, 255, &threshold) ||
-       !read_double_field("face_scale_factor", "Rosto: fator de escala", 1.05, 2.0, &face_scale_factor) ||
-       !read_int_field("face_min_neighbors", "Rosto: vizinhos mínimos", 1, 10, &face_min_neighbors) ||
-       !read_int_field("face_min_consecutive", "Rosto: quadros seguidos", 1, 10, &face_min_consecutive) ||
-       !read_int_field("face_size_min", "Rosto: tamanho mínimo", 1, 480, &face_size_min) ||
-       !read_int_field("face_size_max", "Rosto: tamanho máximo", 1, 480, &face_size_max) ||
-       !read_int_field("fps", "Quadros por segundo", 1, 30, &fps))
+    if(!read_int_field("on_timeout", "Display time", 5, 3600, &on_timeout) ||
+       !read_int_field("threshold", "Motion threshold", 1, 255, &threshold) ||
+       !read_double_field("face_scale_factor", "Face: scale factor", 1.05, 2.0, &face_scale_factor) ||
+       !read_int_field("face_min_neighbors", "Face: minimum neighbors", 1, 10, &face_min_neighbors) ||
+       !read_int_field("face_min_consecutive", "Face: consecutive frames", 1, 10, &face_min_consecutive) ||
+       !read_int_field("face_size_min", "Face: minimum size", 1, 480, &face_size_min) ||
+       !read_int_field("face_size_max", "Face: maximum size", 1, 480, &face_size_max) ||
+       !read_int_field("fps", "Frames per second", 1, 30, &fps))
         return false;
     if(face_size_min > face_size_max)
-        return fail("O tamanho mínimo do rosto não pode passar do máximo.");
+        return fail("The minimum face size cannot exceed the maximum.");
 
     cJSON *j = ensure_object(mJson, "detection");
     set_string(j, "model", model_copy);
@@ -448,12 +448,12 @@ static bool process_detection()
 static bool process_hardware()
 {
     int vu_min = 0, vu_max = 0, brightness = 0;
-    if(!read_int_field("brightness", "Brilho", 1, 100, &brightness) ||
-       !read_int_field("vu_min", "Bargraph mínimo", 0, 255, &vu_min) ||
-       !read_int_field("vu_max", "Bargraph máximo", 0, 255, &vu_max))
+    if(!read_int_field("brightness", "Brightness", 1, 100, &brightness) ||
+       !read_int_field("vu_min", "Bargraph minimum", 0, 255, &vu_min) ||
+       !read_int_field("vu_max", "Bargraph maximum", 0, 255, &vu_max))
         return false;
     if(vu_min >= vu_max)
-        return fail("O mínimo do bargraph precisa ser menor que o máximo.");
+        return fail("The bargraph minimum must be lower than the maximum.");
 
     sNixieConfig current{};
     load_nixie_config(&current);
@@ -481,16 +481,16 @@ static bool process_schedule()
 {
     int use_astro = 0, day_start = 0, day_end = 0, gate_half_hour = 0;
     int regen_enabled = 0, regen_count = 0, regen_cycles = 0;
-    if(!read_int_field("use_astro", "Como decidir se é dia", 0, 1, &use_astro) ||
-       !read_int_field("day_start", "Primeira hora", 0, 23, &day_start) ||
-       !read_int_field("day_end", "Última hora", 0, 23, &day_end) ||
-       !read_int_field("gate_half_hour", "Data da meia hora", 0, 1, &gate_half_hour) ||
-       !read_int_field("regen_enabled", "Recuperação automática", 0, 1, &regen_enabled) ||
-       !read_int_field("regen_count", "Rodadas por dia", 1, REGEN_SESSIONS_MAX, &regen_count) ||
-       !read_int_field("regen_cycles", "Voltas por rodada", 1, 60, &regen_cycles))
+    if(!read_int_field("use_astro", "How to tell it is daytime", 0, 1, &use_astro) ||
+       !read_int_field("day_start", "First hour", 0, 23, &day_start) ||
+       !read_int_field("day_end", "Last hour", 0, 23, &day_end) ||
+       !read_int_field("gate_half_hour", "Date on the half hour", 0, 1, &gate_half_hour) ||
+       !read_int_field("regen_enabled", "Automatic regeneration", 0, 1, &regen_enabled) ||
+       !read_int_field("regen_count", "Sessions per day", 1, REGEN_SESSIONS_MAX, &regen_count) ||
+       !read_int_field("regen_cycles", "Sweeps per session", 1, 60, &regen_cycles))
         return false;
     if(day_start > day_end)
-        return fail("A primeira hora do dia não pode vir depois da última.");
+        return fail("The first hour of the day cannot come after the last one.");
 
     //only the first regen_count boxes count: the page keeps the others, hidden, for later
     int minutes[REGEN_SESSIONS_MAX];
@@ -499,17 +499,17 @@ static bool process_schedule()
         char field[24];
         snprintf(field, sizeof(field), "regen_time_%d", i);
         if(!parse_hhmm(get_field_value(field), &minutes[i]))
-            return fail("Horário da rodada %d: use HH:MM, de 00:00 a 23:59.", i + 1);
+            return fail("Session %d time: use HH:MM, from 00:00 to 23:59.", i + 1);
         for(int k = 0; k < i; k++)
             if(minutes[k] == minutes[i])
-                return fail("Duas rodadas no mesmo horário: %02d:%02d.", minutes[i] / 60, minutes[i] % 60);
+                return fail("Two sessions at the same time: %02d:%02d.", minutes[i] / 60, minutes[i] % 60);
     }
     std::sort(minutes, minutes + regen_count);
 
     cJSON *schedule = ensure_object(mJson, "schedule");
     cJSON *regen = ensure_object(mJson, "regen");
     if(schedule == nullptr || regen == nullptr)
-        return fail("Ocorreu um erro");
+        return fail("An error occurred");
 
     set_bool  (schedule, "use_astro",      use_astro != 0);
     set_number(schedule, "day_start",      day_start);
@@ -544,27 +544,27 @@ static void process_regen()
     if(strcmp(action, "stop") == 0)
     {
         queue_signal("nixie", SIG_CGI_REGEN_OFF);
-        say("Recuperação encerrada");
+        say("Regeneration stopped");
         return;
     }
     if(strcmp(action, "start") != 0)
     {
-        say("Ação desconhecida");
+        say("Unknown action");
         return;
     }
 
     int tube = 0;
-    if(!read_int_field("tube", "Válvula", REGEN_TUBE_MIN, REGEN_TUBE_MAX, &tube))
+    if(!read_int_field("tube", "Tube", REGEN_TUBE_MIN, REGEN_TUBE_MAX, &tube))
         return;
     queue_signal("nixie", SIG_CGI_REGEN_ON | tube);
-    say("Recuperação iniciada na válvula %d", tube);
+    say("Regeneration started on tube %d", tube);
 }
 
 static void process_Log_file()
 {
     FILE *f = fopen("/tmp/nixie.txt", "r");
     if (!f) {
-        say("Erro ao abrir o log");
+        say("Could not open the log");
         return;
     }
 
@@ -733,7 +733,7 @@ static void process_get()
         print_timezones();
     }
     else
-        printf("Status: 400 Bad Request\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nPedido desconhecido\n");
+        printf("Status: 400 Bad Request\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nUnknown request\n");
 }
 
 // ------------------------------------------------------------------ main
@@ -752,12 +752,12 @@ int main() {
     mJson = parse_jsonfile();
     if(mJson == nullptr)
     {
-        printf("Não consegui ler a configuração do relógio\n");
+        printf("Could not read the clock configuration\n");
         return 0;
     }
     if(parse_stdin() == nullptr)
     {
-        printf("Pedido inválido\n");
+        printf("Invalid request\n");
         free_jsonfile();
         return 0;
     }
@@ -781,18 +781,18 @@ int main() {
     else if(strcmp(form, "logs") == 0)
         process_Log_file();
     else
-        say("Formulário desconhecido");
+        say("Unknown form");
 
     if(save)
     {
         if(save_json())
         {
             if(gMessage[0] == '\0')
-                say("Configuração salva");
+                say("Configuration saved");
         }
         else
         {
-            say("Não consegui gravar a configuração.");
+            say("Could not save the configuration.");
             gSignalCount = 0;   //nothing changed on disk, so there is nothing to tell anyone
         }
     }

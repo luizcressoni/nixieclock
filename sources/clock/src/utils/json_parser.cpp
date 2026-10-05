@@ -220,9 +220,8 @@ void load_ntp_config(sNtpSettings *_ntpconfig)
 
 void load_location(sLocation *_location)
 {
-    //Zero/zero de proposito: sem um "maps" no arquivo nao ha coordenada nenhuma
-    //para adivinhar, e qualquer default util seria a casa de alguem. Com apikey
-    //vazia tambem nao sai requisicao, entao isso nunca chega a virar uma consulta.
+    //Zero/zero on purpose: any useful default would be somebody's home.
+    //An empty apikey sends no request anyway.
     _location->latitude = 0.0;
     _location->longitude = 0.0;
     _location->apikey[0] = 0;

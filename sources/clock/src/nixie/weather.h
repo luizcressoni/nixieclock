@@ -8,10 +8,10 @@
 
 /*** Call example and the returned data:
  * 
- * https://api.weatherapi.com/v1/forecast.json?key=<SUA_CHAVE>&days=1&q=-23.5505,-46.6333
+ * https://api.weatherapi.com/v1/forecast.json?key=<YOUR_KEY>&days=1&q=-23.5505,-46.6333
  *
- * A chave sai de weatherapi.com e e gravada em nixie.json, pela aba
- * "Localizacao" do site do relogio -- nunca aqui dentro.
+ * The key comes from weatherapi.com and is stored in nixie.json through the
+ * "Location" tab of the clock's web site -- never in here.
  * 
  {
   "location": {

@@ -1,5 +1,5 @@
 [Unit]
-Description=Verifica SSID e cria arquivo em /tmp se disponível
+Description=Check SSID and flag it in /tmp when in range
 After=network.target
 
 [Service]

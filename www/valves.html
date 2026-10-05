@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Válvulas</title>
+    <title>Tubes</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -57,59 +57,59 @@
     </style>
 </head>
 <body>
-    <h2>Válvulas</h2>
+    <h2>Tubes</h2>
     <form id="hardwareForm" onsubmit="submitFormIndex('hardwareForm', event)">
         <input type="hidden" name="form" value="hardware">
-        <label for="brightness">Brilho geral (porcentagem, 1 a 100):</label>
+        <label for="brightness">Overall brightness (percent, 1 to 100):</label>
         <input type="text" id="brightness" name="brightness" data-key="hardware.brightness" inputmode="numeric" required>
 
-        <label for="vu_min">Bargraph - limite mínimo (0°, de 0 a 255):</label>
+        <label for="vu_min">Bargraph - lower limit (0°, 0 to 255):</label>
         <input type="text" id="vu_min" name="vu_min" data-key="hardware.vu_min" inputmode="numeric" required>
         
-        <label for="vu_max">Bargraph - limite máximo (45°, de 0 a 255):</label>
+        <label for="vu_max">Bargraph - upper limit (45°, 0 to 255):</label>
         <input type="text" id="vu_max" name="vu_max" data-key="hardware.vu_max" inputmode="numeric" required>
 
-        <button type="submit">Salvar</button>
+        <button type="submit">Save</button>
     </form>
 
     <section>
         <hr>
-        <h2>Quando acender sozinho</h2>
+        <h2>When to light up on its own</h2>
         <p class="hint">
-            Na troca de hora e na meia hora o relógio acende por conta própria. Fora do período
-            diurno isso só gasta válvula, então essas duas acendidas ficam presas ao dia. Câmera
-            não entra aqui: movimento e rosto acendem o relógio a qualquer hora, sempre.
+            On the hour and on the half hour the clock lights up on its own. At night that only
+            wears out tubes, so both are tied to daytime. The camera is not affected: motion and
+            faces light the clock up at any hour.
         </p>
         <form id="scheduleForm" onsubmit="submitFormIndex('scheduleForm', event)">
             <input type="hidden" name="form" value="schedule">
 
-            <label for="use_astro">Como decidir se é dia:</label>
+            <label for="use_astro">How to tell it is daytime:</label>
             <select id="use_astro" name="use_astro" data-key="schedule.use_astro">
-                <option value="1">Nascer e pôr do sol reais (previsão do tempo)</option>
-                <option value="0">Sempre a faixa de horário fixa abaixo</option>
+                <option value="1">Actual sunrise and sunset (weather forecast)</option>
+                <option value="0">Always the fixed hours below</option>
             </select>
 
-            <label for="day_start">Faixa fixa - primeira hora (usada sem internet):</label>
+            <label for="day_start">Fixed hours - first hour (used when offline):</label>
             <input type="text" id="day_start" name="day_start" data-key="schedule.day_start" inputmode="numeric" required>
 
-            <label for="day_end">Faixa fixa - última hora:</label>
+            <label for="day_end">Fixed hours - last hour:</label>
             <input type="text" id="day_end" name="day_end" data-key="schedule.day_end" inputmode="numeric" required>
 
-            <label for="gate_half_hour">Data da meia hora:</label>
+            <label for="gate_half_hour">Date on the half hour:</label>
             <select id="gate_half_hour" name="gate_half_hour" data-key="schedule.gate_half_hour">
-                <option value="1">Só de dia, junto com a hora cheia</option>
-                <option value="0">A qualquer hora</option>
+                <option value="1">Daytime only, like the full hour</option>
+                <option value="0">Any time</option>
             </select>
 
             <hr>
 
-            <label for="regen_enabled">Recuperação automática:</label>
+            <label for="regen_enabled">Automatic regeneration:</label>
             <select id="regen_enabled" name="regen_enabled" data-key="regen.enabled">
-                <option value="1">Ligada</option>
-                <option value="0">Desligada</option>
+                <option value="1">On</option>
+                <option value="0">Off</option>
             </select>
 
-            <label for="regen_count">Rodadas por dia:</label>
+            <label for="regen_count">Sessions per day:</label>
             <select id="regen_count" name="regen_count" data-key="regen.count" onchange="showRegenTimes(this.form)">
                 <option value="1">1</option>
                 <option value="2">2</option>
@@ -119,7 +119,7 @@
                 <option value="6">6</option>
             </select>
 
-            <label for="regen_time_0">Horário de cada rodada:</label>
+            <label for="regen_time_0">Time of each session:</label>
             <input type="time" id="regen_time_0" name="regen_time_0" class="regen-time" data-key="regen.times.0">
             <input type="time" name="regen_time_1" class="regen-time" data-key="regen.times.1">
             <input type="time" name="regen_time_2" class="regen-time" data-key="regen.times.2">
@@ -127,47 +127,47 @@
             <input type="time" name="regen_time_4" class="regen-time" data-key="regen.times.4">
             <input type="time" name="regen_time_5" class="regen-time" data-key="regen.times.5">
 
-            <label for="regen_cycles">Voltas de 0 a 9 em cada rodada (1 a 60):</label>
+            <label for="regen_cycles">0 to 9 sweeps per session (1 to 60):</label>
             <input type="text" id="regen_cycles" name="regen_cycles" data-key="regen.cycles" inputmode="numeric" required>
 
             <p class="hint">
-                A recuperação automática acende as seis válvulas ao mesmo tempo, no brilho
-                configurado acima, girando 0 a 9. Cada volta leva 10 segundos, então 5 voltas dão
-                cerca de 50 segundos por rodada. Ela é prevenção, não conserto: não usa
-                sobrecorrente. A rodada só começa com o relógio apagado: se houver alguém na frente
-                no horário marcado, ela fica para o próximo. Se a câmera detectar alguém durante a
-                rodada, ela para e o relógio volta a mostrar a hora.
+                Automatic regeneration lights all six tubes at once, at the brightness set
+                above, cycling 0 to 9. Each sweep takes 10 seconds, so 5 sweeps make about
+                50 seconds per session. It is prevention, not repair: no overcurrent. A session
+                only starts with the clock dark: if somebody is in front of it at that time, it
+                waits for the next one. If the camera sees somebody mid-session, it stops and the
+                clock goes back to showing the time.
             </p>
 
-            <button type="submit">Salvar</button>
+            <button type="submit">Save</button>
         </form>
     </section>
 
     <section>
         <hr>
-        <h2>Recuperação de catodo</h2>
+        <h2>Cathode regeneration</h2>
         <p class="hint">
-            Faz a válvula escolhida girar 0 a 9 continuamente, com brilho no máximo, para queimar
-            o envenenamento dos catodos pouco usados. Roda por tempo indeterminado, ignorando a
-            câmera, até você mandar parar ou o relógio reiniciar. Enquanto roda, o relógio não
-            mostra a hora e as outras válvulas ficam apagadas.
+            Cycles the chosen tube through 0 to 9 nonstop, at full brightness, to burn off the
+            poisoning on rarely used cathodes. Runs indefinitely, ignoring the camera, until you
+            stop it or the clock restarts. Meanwhile the clock does not show the time and the
+            other tubes stay dark.
         </p>
         <form id="regenForm" onsubmit="submitFormIndex('regenForm', event)">
             <input type="hidden" name="form" value="regen">
             <input type="hidden" id="regen_action" name="action" value="start">
 
-            <label for="tube">Válvula (contando da esquerda para a direita):</label>
+            <label for="tube">Tube (counting from left to right):</label>
             <select id="tube" name="tube">
-                <option value="1">1 - dezena da hora (extrema esquerda)</option>
-                <option value="2">2 - unidade da hora</option>
-                <option value="3">3 - dezena do minuto</option>
-                <option value="4">4 - unidade do minuto</option>
-                <option value="5">5 - dezena do segundo</option>
-                <option value="6" selected>6 - unidade do segundo (extrema direita)</option>
+                <option value="1">1 - hour tens (leftmost)</option>
+                <option value="2">2 - hour units</option>
+                <option value="3">3 - minute tens</option>
+                <option value="4">4 - minute units</option>
+                <option value="5">5 - second tens</option>
+                <option value="6" selected>6 - second units (rightmost)</option>
             </select>
 
-            <button type="submit" onclick="document.getElementById('regen_action').value='start'">Iniciar</button>
-            <button type="submit" class="stop" onclick="document.getElementById('regen_action').value='stop'">Parar</button>
+            <button type="submit" onclick="document.getElementById('regen_action').value='start'">Start</button>
+            <button type="submit" class="stop" onclick="document.getElementById('regen_action').value='stop'">Stop</button>
         </form>
     </section>
 </body>

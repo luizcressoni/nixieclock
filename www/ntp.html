@@ -51,23 +51,23 @@
     </style>
 </head>
 <body>
-    <h2>Fuso e servidores NTP</h2>
+    <h2>Time zone and NTP servers</h2>
     <form id="ntpForm" onsubmit="submitFormIndex('ntpForm', event)">
         <input type="hidden" name="form" value="ntp">
 
-        <label for="timezone">Fuso horário:</label>
+        <label for="timezone">Time zone:</label>
         <select id="timezone" name="timezone" data-key="ntp.timezone" required></select>
 
-        <label for="server0">Servidores (pelo menos um):</label>
+        <label for="server0">Servers (at least one):</label>
         <input type="text" id="server0" name="server0" data-key="ntp.server_0" maxlength="63" required>
         <input type="text" id="server1" name="server1" data-key="ntp.server_1" maxlength="63">
         <input type="text" id="server2" name="server2" data-key="ntp.server_2" maxlength="63">
         <input type="text" id="server3" name="server3" data-key="ntp.server_3" maxlength="63">
 
-        <p class="hint">O fuso e os servidores vão direto para o sistema (systemd-timesyncd).
-            O horário de verão vem junto com o fuso, não precisa ajustar à mão.</p>
+        <p class="hint">Time zone and servers go straight to the system (systemd-timesyncd).
+            Daylight saving comes with the time zone; no manual adjustment needed.</p>
 
-        <button type="submit">Salvar</button>
+        <button type="submit">Save</button>
     </form>
 </body>
 </html>

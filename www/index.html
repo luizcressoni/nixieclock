@@ -48,15 +48,15 @@
     </div>
     <div id="container">
         <div id="left-menu">
-            Ajustes
+            Settings
             <ul>
                 <li><a href="#" onclick="openPage('wifi')">Wi-Fi</a></li>
-                <li><a href="#" onclick="openPage('maps')">Localização</a></li>
-                <li><a href="#" onclick="openPage('ntp')">Servidores NTP</a></li>
-                <li><a href="#" onclick="openPage('detection')">Detecção</a></li>
-                <li><a href="#" onclick="openPage('valves')">Limites das válvulas </a></li>
-                <li><a href="#" onclick="openPage('images')">Fotos </a></li>
-                <li><a href="#" onclick="openPagetxt('logs')">Logs </a></li>
+                <li><a href="#" onclick="openPage('maps')">Location</a></li>
+                <li><a href="#" onclick="openPage('ntp')">NTP servers</a></li>
+                <li><a href="#" onclick="openPage('detection')">Detection</a></li>
+                <li><a href="#" onclick="openPage('valves')">Tubes</a></li>
+                <li><a href="#" onclick="openPage('images')">Photos</a></li>
+                <li><a href="#" onclick="openPagetxt('logs')">Logs</a></li>
                 
             </ul>
         </div>
@@ -134,8 +134,8 @@
             var apikey = root.querySelector('#apikey');
             if (apikey)
                 apikey.placeholder = lookup(data, 'maps.apikey_set')
-                    ? 'chave gravada; deixe em branco para manter'
-                    : 'sem chave: a previsão do tempo está desligada';
+                    ? 'key stored; leave blank to keep it'
+                    : 'no key: weather forecast is off';
 
             root.querySelectorAll('form').forEach(form => {
                 if (form.regen_count)
@@ -151,7 +151,7 @@
     // What the camera reports it is really doing: the frame the driver delivers, the cascade's
     // window and the handful of sizes the search tries. Settings that collide with any of these
     // used to leave face detection on and finding nothing, in silence.
-    var CASCADE_NAMES = { lbp_improved: 'LBP melhorado', lbp: 'LBP', haar: 'Haar' };
+    var CASCADE_NAMES = { lbp_improved: 'improved LBP', lbp: 'LBP', haar: 'Haar' };
 
     function showFaceStatus(root, status) {
         var box = root.querySelector('#face_status');
@@ -159,34 +159,34 @@
             return;
         box.classList.remove('warning');
         if (!status) {
-            box.textContent = 'A câmera ainda não informou o que está usando. Ela informa ao ' +
-                'iniciar e cada vez que esta aba é salva; reabra a aba em alguns segundos.';
+            box.textContent = 'The camera has not reported its settings yet. It does so on ' +
+                'startup and whenever this tab is saved; reopen the tab in a few seconds.';
             return;
         }
         var when = new Date(status.time * 1000).toLocaleTimeString().slice(0, 5);
         var cascade = CASCADE_NAMES[status.cascade] || status.cascade;
         if (status.state === 'off') {
-            box.textContent = 'Desde ' + when + ': detecção de rosto desligada, a câmera está só no movimento.';
+            box.textContent = 'Since ' + when + ': face detection off, the camera is on motion only.';
             return;
         }
         if (status.state === 'error') {
             box.classList.add('warning');
-            box.textContent = 'Desde ' + when + ': a câmera não conseguiu carregar o detector ' + cascade +
-                ' (código 99 1 nas válvulas). Escolha outro detector e salve.';
+            box.textContent = 'Since ' + when + ': the camera could not load the ' + cascade +
+                ' detector (code 99 1 on the tubes). Pick another detector and save.';
             return;
         }
         var sizes = status.sizes || [];
-        var text = 'Em uso desde ' + when + ': quadro ' + status.frame_width + 'x' + status.frame_height +
-            ', detector ' + cascade + ' (janela ' + status.window + ' px), procurando rostos de ' +
-            sizes[0] + ' a ' + sizes[sizes.length - 1] + ' px em ' + sizes.length +
-            (sizes.length === 1 ? ' tamanho' : ' tamanhos') + ': ' + sizes.join(', ') + '. Pedido: ' +
-            status.requested_min + ' a ' + status.requested_max + ' px.';
+        var text = 'In use since ' + when + ': frame ' + status.frame_width + 'x' + status.frame_height +
+            ', ' + cascade + ' detector (window ' + status.window + ' px), looking for faces from ' +
+            sizes[0] + ' to ' + sizes[sizes.length - 1] + ' px in ' + sizes.length +
+            (sizes.length === 1 ? ' size' : ' sizes') + ': ' + sizes.join(', ') + '. Requested: ' +
+            status.requested_min + ' to ' + status.requested_max + ' px.';
         if (status.frame_width !== 320 || status.frame_height !== 200)
-            text += ' A câmera não entregou o quadro pedido (320x200).';
+            text += ' The camera did not deliver the requested frame (320x200).';
         if (status.adjusted) {
             box.classList.add('warning');
-            text += ' A faixa pedida não contém nenhum dos tamanhos que a busca testa, e a câmera ' +
-                'ampliou por conta própria. Ajuste o mínimo, o máximo ou o fator de escala.';
+            text += ' The requested range holds none of the sizes the search tries, so the camera ' +
+                'widened it on its own. Adjust the minimum, the maximum or the scale factor.';
         }
         box.textContent = text;
     }
@@ -208,13 +208,13 @@
             var password = form.wifiPassword.value;
             var bytes = new TextEncoder().encode(ssid).length;
             if (bytes < 1 || bytes > 32)
-                return 'O nome da rede precisa ter de 1 a 32 caracteres.';
+                return 'The network name must be 1 to 32 characters.';
             if (password.length < 8 || password.length > 63)
-                return 'A senha precisa ter de 8 a 63 caracteres.';
+                return 'The password must be 8 to 63 characters.';
             if (password !== form.confirmPassword.value)
-                return 'Senhas não conferem!';
+                return 'Passwords do not match!';
             if (/["\\\x00-\x1f\x7f]/.test(ssid + password))
-                return 'Aspas, barra invertida e quebras de linha não são aceitas.';
+                return 'Quotes, backslashes and line breaks are not allowed.';
             return '';
         }
     };
@@ -239,7 +239,7 @@
         .then(result => alert(result))
         .catch(error => {
             console.error('Error:', error);
-            alert('O relógio não respondeu.');
+            alert('The clock did not respond.');
         });
     }
 

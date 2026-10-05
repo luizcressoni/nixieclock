@@ -96,7 +96,7 @@
 //This one is prevention, not repair, and that is why it looks nothing like the manual routine
 //above: all six tubes at once, at the brightness the user configured, for a few short passes in
 //the small hours. Overdriving healthy tubes every single night would spend the life we are
-//trying to save, so the sobrecorrente stays where it belongs, in the on demand repair mode.
+//trying to save, so the overcurrent stays where it belongs, in the on demand repair mode.
 //A full 0..9 sweep of every cathode on every tube takes ten seconds, which is what makes it
 //cheap enough to run several times a night instead of once for a long while.
 #define REGEN_NIGHT_HOUR_DEFAULT    2   //default first session, and the old "hour" key's fallback
