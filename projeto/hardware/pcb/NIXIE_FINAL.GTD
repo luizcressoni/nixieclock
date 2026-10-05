@@ -1,9 +1,9 @@
 {Environment
-	{FilesPath  Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE}
+	{FilesPath  F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB}
 }
 {Layers
 	{Layer  1
-		{File        NIXIE_V2.TOP}
+		{File        NIXIE_FINAL.TOP}
 		{LyrName     -}
 		{ApList      }
 		{Visibility  On}
@@ -12,7 +12,7 @@
 		{Type        Top}
 	}
 	{Layer  2
-		{File        NIXIE_V2.BOT}
+		{File        NIXIE_FINAL.BOT}
 		{LyrName     -}
 		{ApList      }
 		{Visibility  On}
@@ -21,7 +21,7 @@
 		{Type        Bottom}
 	}
 	{Layer  3
-		{File        NIXIE_V2.IN1}
+		{File        NIXIE_FINAL.IN1}
 		{LyrName     -}
 		{ApList      }
 		{Visibility  On}
@@ -30,7 +30,7 @@
 		{Type        Inner}
 	}
 	{Layer  4
-		{File        NIXIE_V2.SMT}
+		{File        NIXIE_FINAL.SMT}
 		{LyrName     -}
 		{ApList      }
 		{Visibility  On}
@@ -39,7 +39,7 @@
 		{Type        Other}
 	}
 	{Layer  5
-		{File        NIXIE_V2.SMB}
+		{File        NIXIE_FINAL.SMB}
 		{LyrName     -}
 		{ApList      }
 		{Visibility  On}
@@ -48,7 +48,7 @@
 		{Type        Other}
 	}
 	{Layer  6
-		{File        NIXIE_V2.SST}
+		{File        NIXIE_FINAL.SST}
 		{LyrName     -}
 		{ApList      }
 		{Visibility  On}
@@ -57,7 +57,7 @@
 		{Type        Other}
 	}
 	{Layer  7
-		{File        NIXIE_V2.AST}
+		{File        NIXIE_FINAL.AST}
 		{LyrName     -}
 		{ApList      }
 		{Visibility  On}
@@ -66,7 +66,7 @@
 		{Type        Other}
 	}
 	{Layer  8
-		{File        NIXIE_V2.DRD}
+		{File        NIXIE_FINAL.DRD}
 		{LyrName     -}
 		{ApList      }
 		{Visibility  On}

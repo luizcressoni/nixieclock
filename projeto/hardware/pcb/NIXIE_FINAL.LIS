@@ -1,0 +1,212 @@
+Post Processor Report
+OrCAD FILE: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.MAX
+Mon Oct 05 19:17:21 2026
+
+*********************************************************
+
+Output file: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.TOP
+
+Aperture totals for F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.TOP:
+---------------------------------------------------------
+D11:  0.0520 ROUND  --       0 Draws,       9 Flashes
+D12:  0.0520 SQUARE --       0 Draws,       3 Flashes
+D14:  0.0400 ROUND  --       0 Draws,     159 Flashes
+D15:  0.3150 ROUND  --       0 Draws,       4 Flashes
+D16:  0.1300 x 0.1600 RECTANGLE -----       1 Flashes
+D17:  0.1600 x 0.1300 RECTANGLE -----       2 Flashes
+D18:  0.0580 ROUND  --       0 Draws,     194 Flashes
+D19:  0.0580 SQUARE --       0 Draws,      21 Flashes
+D20:  0.0600 ROUND  --       0 Draws,       2 Flashes
+D21:  0.0630 SQUARE --       0 Draws,       1 Flashes
+D23:  0.0750 ROUND  --       0 Draws,      12 Flashes
+D24:  0.0750 SQUARE --       0 Draws,       6 Flashes
+D25:  0.0450 ROUND  --       0 Draws,      46 Flashes
+D29:  0.0708 ROUND  --       0 Draws,      66 Flashes
+D30:  0.0100 ROUND  --    8991 Draws,       0 Flashes
+D31:  0.0180 ROUND  --      60 Draws,       0 Flashes
+D32:  0.0120 ROUND  --    1126 Draws,       0 Flashes
+D33:  0.0220 ROUND  --      92 Draws,       0 Flashes
+D55:  0.0350 ROUND  --       0 Draws,     256 Flashes
+D56:  0.0800 ROUND  --       0 Draws,       8 Flashes
+---------------------------------------------------------
+ 20 D-Codes      -----   10269 Draws,     790 Flashes
+
+*********************************************************
+
+Output file: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.BOT
+
+Aperture totals for F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.BOT:
+---------------------------------------------------------
+D11:  0.0520 ROUND  --       0 Draws,       9 Flashes
+D12:  0.0520 SQUARE --       0 Draws,       3 Flashes
+D14:  0.0400 ROUND  --       0 Draws,     159 Flashes
+D15:  0.3150 ROUND  --       0 Draws,       4 Flashes
+D16:  0.1300 x 0.1600 RECTANGLE -----       1 Flashes
+D17:  0.1600 x 0.1300 RECTANGLE -----       2 Flashes
+D18:  0.0580 ROUND  --       0 Draws,     194 Flashes
+D19:  0.0580 SQUARE --       0 Draws,      21 Flashes
+D20:  0.0600 ROUND  --       0 Draws,       2 Flashes
+D21:  0.0630 SQUARE --       0 Draws,       1 Flashes
+D23:  0.0750 ROUND  --       0 Draws,      12 Flashes
+D24:  0.0750 SQUARE --       0 Draws,       6 Flashes
+D25:  0.0450 ROUND  --       0 Draws,      46 Flashes
+D29:  0.0708 ROUND  --       0 Draws,      66 Flashes
+D30:  0.0100 ROUND  --   10283 Draws,       0 Flashes
+D31:  0.0180 ROUND  --      33 Draws,       0 Flashes
+D32:  0.0120 ROUND  --     789 Draws,       0 Flashes
+D33:  0.0220 ROUND  --      46 Draws,       0 Flashes
+D55:  0.0350 ROUND  --       0 Draws,     256 Flashes
+D56:  0.0800 ROUND  --       0 Draws,       8 Flashes
+---------------------------------------------------------
+ 20 D-Codes      -----   11151 Draws,     790 Flashes
+
+*********************************************************
+
+Output file: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.IN1
+
+Aperture totals for F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.IN1:
+---------------------------------------------------------
+D18:  0.0580 ROUND  --       0 Draws,       4 Flashes
+D19:  0.0580 SQUARE --       0 Draws,       1 Flashes
+D48:  0.0050 ROUND  --       4 Draws,       0 Flashes
+---------------------------------------------------------
+  3 D-Codes      -----       4 Draws,       5 Flashes
+
+*********************************************************
+
+Output file: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.SMT
+
+Aperture totals for F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.SMT:
+---------------------------------------------------------
+D11:  0.0520 ROUND  --       0 Draws,       9 Flashes
+D12:  0.0520 SQUARE --       0 Draws,       3 Flashes
+D18:  0.0580 ROUND  --       0 Draws,     194 Flashes
+D19:  0.0580 SQUARE --       0 Draws,      21 Flashes
+D23:  0.0750 ROUND  --       0 Draws,      12 Flashes
+D24:  0.0750 SQUARE --       0 Draws,       6 Flashes
+D25:  0.0450 ROUND  --       0 Draws,      46 Flashes
+D36:  0.0420 ROUND  --       0 Draws,      24 Flashes
+D37:  0.3300 ROUND  --       0 Draws,       4 Flashes
+D38:  0.1400 x 0.1700 RECTANGLE -----       1 Flashes
+D39:  0.1700 x 0.1400 RECTANGLE -----       2 Flashes
+D40:  0.0650 ROUND  --       0 Draws,       2 Flashes
+D41:  0.0680 SQUARE --       0 Draws,       1 Flashes
+D46:  0.0787 ROUND  --       0 Draws,      66 Flashes
+D57:  0.0840 ROUND  --       0 Draws,       8 Flashes
+---------------------------------------------------------
+ 15 D-Codes      -----       0 Draws,     399 Flashes
+
+*********************************************************
+
+Output file: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.SMB
+
+Aperture totals for F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.SMB:
+---------------------------------------------------------
+D11:  0.0520 ROUND  --       0 Draws,       9 Flashes
+D12:  0.0520 SQUARE --       0 Draws,       3 Flashes
+D18:  0.0580 ROUND  --       0 Draws,     194 Flashes
+D19:  0.0580 SQUARE --       0 Draws,      21 Flashes
+D23:  0.0750 ROUND  --       0 Draws,      12 Flashes
+D24:  0.0750 SQUARE --       0 Draws,       6 Flashes
+D25:  0.0450 ROUND  --       0 Draws,      46 Flashes
+D36:  0.0420 ROUND  --       0 Draws,      24 Flashes
+D37:  0.3300 ROUND  --       0 Draws,       4 Flashes
+D38:  0.1400 x 0.1700 RECTANGLE -----       1 Flashes
+D39:  0.1700 x 0.1400 RECTANGLE -----       2 Flashes
+D40:  0.0650 ROUND  --       0 Draws,       2 Flashes
+D41:  0.0680 SQUARE --       0 Draws,       1 Flashes
+D46:  0.0787 ROUND  --       0 Draws,      66 Flashes
+D57:  0.0840 ROUND  --       0 Draws,       8 Flashes
+---------------------------------------------------------
+ 15 D-Codes      -----       0 Draws,     399 Flashes
+
+*********************************************************
+
+Output file: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.SST
+
+Aperture totals for F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.SST:
+---------------------------------------------------------
+D30:  0.0100 ROUND  --      32 Draws,       0 Flashes
+D48:  0.0050 ROUND  --      48 Draws,       0 Flashes
+D49:  0.0080 ROUND  --    1480 Draws,       0 Flashes
+D50:  0.0079 ROUND  --      24 Draws,       0 Flashes
+D51:  0.0060 ROUND  --      85 Draws,       0 Flashes
+D52:  0.0098 ROUND  --      60 Draws,       0 Flashes
+D53:  0.0010 ROUND  --      32 Draws,       0 Flashes
+D58:  0.0200 ROUND  --       3 Draws,       0 Flashes
+---------------------------------------------------------
+  8 D-Codes      -----    1764 Draws,       0 Flashes
+
+*********************************************************
+
+Output file: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.AST
+
+Aperture totals for F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.AST:
+---------------------------------------------------------
+D11:  0.0520 ROUND  --       0 Draws,       9 Flashes
+D12:  0.0520 SQUARE --       0 Draws,       3 Flashes
+D18:  0.0580 ROUND  --       0 Draws,     194 Flashes
+D19:  0.0580 SQUARE --       0 Draws,      21 Flashes
+D25:  0.0450 ROUND  --       0 Draws,      46 Flashes
+D30:  0.0100 ROUND  --       4 Draws,       0 Flashes
+D49:  0.0080 ROUND  --    1767 Draws,       0 Flashes
+D52:  0.0098 ROUND  --      60 Draws,       0 Flashes
+D53:  0.0010 ROUND  --      18 Draws,       0 Flashes
+---------------------------------------------------------
+  9 D-Codes      -----    1849 Draws,     273 Flashes
+
+*********************************************************
+
+Output file: F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.DRD
+
+Aperture totals for F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE_FINAL.DRD:
+---------------------------------------------------------
+D30:  0.0100 ROUND  --    3233 Draws,       0 Flashes
+---------------------------------------------------------
+  1 D-Codes      -----    3233 Draws,       0 Flashes
+
+
+*********************************************************
+
+Aperture totals for entire project:
+---------------------------------------------------------
+D11:  0.0520 ROUND  --       0 Draws,      45 Flashes
+D12:  0.0520 SQUARE --       0 Draws,      15 Flashes
+D14:  0.0400 ROUND  --       0 Draws,     318 Flashes
+D15:  0.3150 ROUND  --       0 Draws,       8 Flashes
+D16:  0.1300 x 0.1600 RECTANGLE -----       2 Flashes
+D17:  0.1600 x 0.1300 RECTANGLE -----       4 Flashes
+D18:  0.0580 ROUND  --       0 Draws,     974 Flashes
+D19:  0.0580 SQUARE --       0 Draws,     106 Flashes
+D20:  0.0600 ROUND  --       0 Draws,       4 Flashes
+D21:  0.0630 SQUARE --       0 Draws,       2 Flashes
+D23:  0.0750 ROUND  --       0 Draws,      48 Flashes
+D24:  0.0750 SQUARE --       0 Draws,      24 Flashes
+D25:  0.0450 ROUND  --       0 Draws,     230 Flashes
+D29:  0.0708 ROUND  --       0 Draws,     132 Flashes
+D30:  0.0100 ROUND  --   22543 Draws,       0 Flashes
+D31:  0.0180 ROUND  --      93 Draws,       0 Flashes
+D32:  0.0120 ROUND  --    1915 Draws,       0 Flashes
+D33:  0.0220 ROUND  --     138 Draws,       0 Flashes
+D36:  0.0420 ROUND  --       0 Draws,      48 Flashes
+D37:  0.3300 ROUND  --       0 Draws,       8 Flashes
+D38:  0.1400 x 0.1700 RECTANGLE -----       2 Flashes
+D39:  0.1700 x 0.1400 RECTANGLE -----       4 Flashes
+D40:  0.0650 ROUND  --       0 Draws,       4 Flashes
+D41:  0.0680 SQUARE --       0 Draws,       2 Flashes
+D46:  0.0787 ROUND  --       0 Draws,     132 Flashes
+D48:  0.0050 ROUND  --      52 Draws,       0 Flashes
+D49:  0.0080 ROUND  --    3247 Draws,       0 Flashes
+D50:  0.0079 ROUND  --      24 Draws,       0 Flashes
+D51:  0.0060 ROUND  --      85 Draws,       0 Flashes
+D52:  0.0098 ROUND  --     120 Draws,       0 Flashes
+D53:  0.0010 ROUND  --      50 Draws,       0 Flashes
+D55:  0.0350 ROUND  --       0 Draws,     512 Flashes
+D56:  0.0800 ROUND  --       0 Draws,      16 Flashes
+D57:  0.0840 ROUND  --       0 Draws,      16 Flashes
+D58:  0.0200 ROUND  --       3 Draws,       0 Flashes
+---------------------------------------------------------
+ 35 D-Codes      -----   28270 Draws,    2656 Flashes
+
+
+No warnings or errors.
