@@ -6,13 +6,13 @@
 #include "../utils/signals.h"
 #include "../utils/defines.h"
 #include "../utils/json_parser.h"
-#include "../utils/median.h"
 #include "../utils/ctimer.h"
 #include <thread>
 #include <chrono>
 #include <cstdio>
 #include <ctime>
 #include <memory>
+#include <linux/videodev2.h>
 
 using namespace std;
 using namespace std::chrono;
@@ -41,12 +41,15 @@ static int report_until_signal(cSignal &_signal, int _value, const char *_why)
 /*! \brief Tells the web page what the face search is really doing
     \param _state "on", "off" or "error".
     \param _face The detector, when it initialised; null otherwise.
+    \param _light The light meter, once it has a reading; null otherwise.
+    \note Written again whenever the light verdict changes, so the page can say that detection is
+    \note paused because the room is dark.
     \note The configured sizes go through clamps the page cannot see: the frame the driver really
     \note delivers, the cascade's own window, and the handful of discrete sizes the search tries.
     \note A setting that collides with any of them used to fail in silence. This is how it shows.
 */
 static void write_face_status(const char *_state, const sCameraConfig &_config, int _width, int _height,
-                              const cFaceDetection *_face)
+                              const cFaceDetection *_face, const cLightMeter *_light)
 {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "state", _state);
@@ -63,6 +66,12 @@ static void write_face_status(const char *_state, const sCameraConfig &_config, 
         for(const int size : _face->GetSizes())
             cJSON_AddItemToArray(sizes, cJSON_CreateNumber(size));
         cJSON_AddBoolToObject(root, "adjusted", _face->WasAdjusted());
+    }
+    if(_light != nullptr)
+    {
+        cJSON_AddStringToObject(root, "light", _light->IsBright() ? "bright" : "dark");
+        cJSON_AddNumberToObject(root, "brightness", _light->GetBrightness());
+        cJSON_AddNumberToObject(root, "light_time", static_cast<double>(time(nullptr)));
     }
 
     //renamed into place, so the CGI never reads half a file
@@ -111,7 +120,7 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
         brightnessWindow = 1;   //a zero sized window would read past the end of an empty buffer
     if(brightnessWindow > BRIGHTNESS_WINDOW_MAX)
         brightnessWindow = BRIGHTNESS_WINDOW_MAX;
-    cMedianFilter brightness(brightnessWindow);
+    cLightMeter light(brightnessWindow);
     cTimer  timer;
     timer.SetTimeOut(1);
 
@@ -122,12 +131,13 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
     //a reload can fix this one: switching the page to motion only takes the cascade out of it
     if (wantFace && !FaceDetection->Init(frame))
     {
-        write_face_status("error", cameraConfig, width, height, nullptr);
+        write_face_status("error", cameraConfig, width, height, nullptr, nullptr);
         return report_until_signal(NixieSignal, SIG_ERROR + SIG_CONFIG + SIG_FACE_DETECTED,
                                    "Ops, face detection init failed");
     }
-    write_face_status(wantFace ? "on" : "off", cameraConfig, width, height,
-                      wantFace ? FaceDetection.get() : nullptr);
+    const char *faceState = wantFace ? "on" : "off";
+    const cFaceDetection *faceForStatus = wantFace ? FaceDetection.get() : nullptr;
+    write_face_status(faceState, cameraConfig, width, height, faceForStatus, nullptr);
 
     printf("Detectors: face %s, motion %s\n", wantFace ? "on" : "off", wantMotion ? "on" : "off");
 
@@ -137,6 +147,11 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
     Mat gray;   //kept across iterations so cvtColor reuses the buffer instead of reallocating
     int faceTick = 0;
     cTimer faceActive;  //armed by movement; while it runs, the cascade uses the fast cadence
+    cTimer faceAllowed; //armed by movement too, longer: outside it a face does not count at all
+
+    //The frame rate the camera really delivers, logged now and then (CAMERA_FPS_LOG_SECONDS).
+    int fpsFrames = 0;
+    auto fpsStart = steady_clock::now();
 
     while(true){
         int signal_value = 0;
@@ -152,14 +167,49 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
         uint8_t rawBrightness = 0;
         if(!capture_frame(cap, gray, &rawBrightness))
         {
+            motionDetection->Reset();   //the next frame must not be compared with one from before the gap
+            FaceDetection->Reset();
             sleep(1);
             continue;
         }
 
+        fpsFrames++;
+        const auto fpsSpan = duration_cast<milliseconds>(frame_start - fpsStart).count();
+        if(fpsSpan >= CAMERA_FPS_LOG_SECONDS * 1000)
+        {
+            printf("Camera: %.1f fps (asked for %d), light %u (%s), motion threshold %d\n",
+                   fpsFrames * 1000.0 / static_cast<double>(fpsSpan), cameraConfig.fps,
+                   light.GetBrightness(), light.IsBright() ? "bright" : "dark",
+                   motionDetection->GetThreshold());
+            fpsFrames = 0;
+            fpsStart = frame_start;
+        }
+
+        //The light gate (LIGHT_* in defines.h). Both detectors stand down in a dark room and start
+        //from scratch when it is lit again: no frame from before is compared, no run of faces
+        //carried over. The brightness report to the clock below goes on regardless.
+        //The change of light itself is never motion (the reset below, and the global compensation
+        //in the detector): a light being switched on is reported as what it is, see
+        //LIGHT_SWITCH_ON_MS. It does not open the face window -- a face still needs movement seen.
+        if(light.Update(rawBrightness))
+        {
+            printf("Light %u: %s\n", light.GetBrightness(),
+                   light.IsBright() ? "bright enough, detection on" : "too dark, detection paused");
+            motionDetection->Reset();
+            FaceDetection->Reset();
+            write_face_status(faceState, cameraConfig, width, height, faceForStatus, &light);
+            if(light.SwitchedOn() && (wantMotion || wantFace))
+            {
+                printf("Light switched on, waking the clock\n");
+                NixieSignal.Send(NIXIE_SIGNAL, SIG_MOTION_DETECTED_ANY);
+            }
+        }
+        const bool lit = light.IsBright();
+
         //Motion first, and deliberately so: it costs a blur and a difference, it is what wakes
         //the clock immediately, and what it sees decides whether paying for the cascade on this
         //frame is worth it at all.
-        if(wantMotion)
+        if(wantMotion && lit)
         {
             //A view, not a copy: it shares the pixels of the frame already captured.
             const Mat band = gray(motionRoi);
@@ -178,7 +228,10 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
                     break;
             }
             if(motionDetection->SawMovement())
+            {
                 faceActive.SetTimeOut(FACE_ACTIVE_WINDOW_MS);
+                faceAllowed.SetTimeOut(FACE_MOTION_WINDOW_MS);
+            }
         }
 
         //The cascade reads the whole frame, which is four times the band the old code gave it,
@@ -194,20 +247,25 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
 #else
         const bool tracing = false;
 #endif
-        if(wantFace && !tracing)
+        //With motion on, a face only counts within FACE_MOTION_WINDOW_MS of the last movement,
+        //so the cascade does not run at all outside it: a still room cannot wake the clock.
+        const bool faceInWindow = !wantMotion || !faceAllowed.IsTimeOut();
+        if(wantFace && lit && !tracing && faceInWindow)
         {
             const bool active = !wantMotion || !faceActive.IsTimeOut();
             if(++faceTick >= (active ? FACE_DETECT_EVERY_N : FACE_IDLE_EVERY_N))
             {
                 faceTick = 0;
-                if(FaceDetection->Detect(gray))
+                if(FaceDetection->Detect(gray, light.GetBrightness()))
                     NixieSignal.Send(NIXIE_SIGNAL, SIG_FACE_DETECTED);
             }
         }
+        else if(wantFace && !faceInWindow)
+            FaceDetection->Reset();
 
         //Filter the raw level, then scale: the median belongs on the quantity the sensor
         //actually produced, not on one that has already been clipped to the ends of a range.
-        const uint8_t rawFiltered = brightness.Update(rawBrightness);
+        const uint8_t rawFiltered = light.GetBrightness();
         const uint8_t brightnessValue = scale_brightness(rawFiltered);
 
         //A single point of movement was enough to resend before, which meant the clock was fed a
@@ -272,6 +330,13 @@ int main()
     const int width  = probe.cols;
     const int height = probe.rows;
     printf("Camera delivering %dx%d (asked for %dx%d)\n", width, height, FRAME_WIDTH, FRAME_HEIGHT);
+
+    //Left on, as most UVC cameras ship, auto exposure may lengthen the exposure past the frame
+    //time, and the camera halves its frame rate as the light goes down. Every count in the
+    //detectors is in frames, so a gesture that was six frames became three, then two, and was
+    //lost. Off, the camera holds the rate and makes up the light with gain instead, which the
+    //noise-adaptive threshold copes with -- and below that, the light gate stops detection.
+    set_camera_control(V4L2_CID_EXPOSURE_AUTO_PRIORITY, 0, "exposure auto priority");
 
     //The web page sends SIG_CGI_RELOAD after saving the detection settings. The camera stays
     //open across a reload; everything built from the configuration is built again.

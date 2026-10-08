@@ -144,6 +144,14 @@ bool cNixieFsm::PreprocessAction(int _action)
         m_seconds++;
         if(m_seconds_on)
             m_seconds_on--;
+        if(m_motion_blank)
+            m_motion_blank--;
+    }
+    //see MOTION_BLANK_SECONDS: the camera seeing the tubes change their own light
+    if(_action == SIG_MOTION_DETECTED_ANY && m_motion_blank)
+    {
+        LOGGER_DEBUG("Motion while the tubes change brightness, ignored");
+        return false;
     }
     if(_action & SIG_BRIGHTNESS && GetState() != STATE_REGEN)
     {
@@ -157,6 +165,7 @@ bool cNixieFsm::PreprocessAction(int _action)
             glogger->debug("NixieFsm: Ambient light at {:d}, dimming the tubes", brightness);
             mcNixieHardware->SetMaxBrightness(BRIGHTNESS_DIM_PERCENT);
             m_dimmed = true;
+            m_motion_blank = MOTION_BLANK_SECONDS;
         }
         else if(brightness >= BRIGHTNESS_RESTORE_ABOVE && m_dimmed)
         {
@@ -164,6 +173,7 @@ bool cNixieFsm::PreprocessAction(int _action)
                            brightness);
             mcNixieHardware->SetMaxBrightness(gNixieConfig.brightness);
             m_dimmed = false;
+            m_motion_blank = MOTION_BLANK_SECONDS;
         }
     }
     return true;
@@ -357,6 +367,7 @@ void cNixieFsm::SetStateSleeping()
     mcNixieHardware->SetModulation(enumHardwareTypeRgb, enuModulationType::enuModulationTypeSinusoidal, 5000);
     mcNixieHardware->SetModulation(enumHardwareTypeDimmer, enuModulationType::enuModulationTypeRampOneShotDown, 2000);
     mcNixieHardware->SetModulation(enumHardwareTypeVu, enuModulationType::enuModulationTypeNone);
+    m_motion_blank = MOTION_BLANK_SECONDS;
     SetState(STATE_SLEEPING);
 }
 
@@ -452,6 +463,7 @@ void cNixieFsm::SetStateAwake(uint32_t _seconds_on, enumDisplayMode _mode)
     mcNixieHardware->SetRgb(forecast->clouds.r, forecast->clouds.g, forecast->clouds.b);
     mcNixieHardware->SetModulation(enumHardwareTypeRgb, enuModulationType::enuModulationTypeNone);
     mcNixieHardware->SetModulation(enumHardwareTypeDimmer, enuModulationType::enuModulationTypeRampOneShotUp, 3000);
+    m_motion_blank = MOTION_BLANK_SECONDS;
     SetDisplay(menumDisplayMode);        
     SetState(STATE_AWAKE);
 }

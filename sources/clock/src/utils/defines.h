@@ -44,6 +44,18 @@
 //movement and then spending it during the gesture was the wrong way round: it cut the sample
 //rate exactly when resolution mattered most.
 #define FACE_SUSPEND_DURING_GESTURE 1
+//With motion detection on, a face only counts if something moved recently. A poster, a pattern
+//on a cushion, a reflection: anything still that the cascade happens to fire on used to wake an
+//empty room every time the idle cadence came round, forever. Long enough that somebody sitting
+//still reading the clock is still counted -- a head is never quite still for half a minute.
+#define FACE_MOTION_WINDOW_MS       30000
+//Two hits in a row only confirm a face if they are the same face: they must overlap at least
+//this much (intersection over union). Two false positives in different corners used to count.
+#define FACE_MIN_OVERLAP            0.3
+//Under this raw mean the face search gets a histogram equalised copy of the frame. LBP shrugs
+//off a uniform change of light, not a face that spans fifteen grey levels; the equalisation is
+//cheap, and it is only paid for in the dim end of the range the light gate lets through.
+#define FACE_EQUALIZE_BELOW         80
 
 //Motion detection.
 //Direction is decided once, when the gesture is over, from the whole path it traced -- not
@@ -53,12 +65,17 @@
 //the monotonicity test and is reported as undirected presence, which is the honest answer.
 //Measured on synthetic gestures, this also recovers the slow sweep that the old per frame
 //deadband threw away entirely.
-#define MOTION_MIN_CONTOUR          100     //contour area below this is sensor noise
+#define MOTION_MIN_CONTOUR          100     //pixels in a moving blob below which it is noise
 #define MOTION_GLOBAL_CHANGE        0.5     //fraction of the band that means a light changed
 #define MOTION_PRESENCE_FRAMES      3       //frames of movement that mean "someone is there"
 #define MOTION_ANY_COOLDOWN_MS      2000    //...and how often that may be reported
 #define MOTION_WAKE_SECONDS         10      //how long undirected motion alone keeps the tubes lit
 #define MOTION_GESTURE_SECONDS      15      //...and how much a deliberate sweep is worth
+//The tubes ramp up over three seconds when the clock wakes and down over two when it sleeps, and
+//the dimming steps them too. Seen by the camera that is a change of light, and undirected motion
+//reported during one is the clock reacting to itself: it used to wake itself straight back up
+//as it went to sleep. Whole one second ticks, so one more than the longest ramp.
+#define MOTION_BLANK_SECONDS        4
 #define MOTION_EPISODE_END_FRAMES   3       //quiet frames that close a gesture
 #define MOTION_MIN_SAMPLES          3       //points a path needs before it can be judged
 #define MOTION_MIN_TRAVEL_PERCENT   25      //net displacement, as a percentage of band width
@@ -68,10 +85,48 @@
 //which must not go on suppressing the face cascade (see FACE_SUSPEND_DURING_GESTURE above).
 #define MOTION_GESTURE_FRAMES       12      //frames a path may claim to still be a gesture
 #define MOTION_PATH_MAX             45      //...and the hard cap before it is closed anyway
+//The threshold the web page sets is a floor now. The noise of the frame difference is measured on
+//every frame (the median of the difference, which is background in any frame that is not half
+//covered by something moving) and the threshold rises to this many times it when the sensor gets
+//noisier, which is what it does as the light goes down and the camera raises its gain.
+#define MOTION_NOISE_K              6
+//Before the difference is taken, the whole frame is shifted by the median change between the
+//two. That is the global part of the change -- the camera's auto exposure stepping, a lamp, the
+//clock's own tubes ramping up or down in a dim room -- and it is not motion. The median rather
+//than the mean, so a person covering a large part of the band does not count as a light change.
+//Off by one, then: compile with 0 to compare.
+#define MOTION_COMPENSATE_GLOBAL    1
+
+//Light gate.
+//Both detectors only run while the room is lit well enough. In the dark the camera raises its
+//gain and stretches its exposure: the noise swamps the frame difference, the frame rate falls
+//under what a gesture needs, and the face cascade reads noise. What came out was missed people
+//and false alarms in about equal measure. The reading is the median filtered raw mean of the
+//frame, the same one the tubes dim by (BRIGHTNESS_RAW_* below for its scale). The hold keeps
+//the tubes' own ramps, two and three seconds long, from flipping it on their own.
+//A starting point, not a measurement: the camera logs every change of verdict with the reading,
+//so the two ends can be set from the clock itself.
+#define LIGHT_DARK_BELOW            40      //raw mean under which detection stops...
+#define LIGHT_BRIGHT_ABOVE          55      //...and over which it starts again
+#define LIGHT_HOLD_MS               4000    //how long a crossing down must last to be believed...
+#define LIGHT_HOLD_UP_MS            1500    //...and one up: somebody switching the light on is waiting
+//A light being switched on wakes the clock by itself, as undirected motion would: whoever did it
+//is in the room, and the camera, blind until then, could not have seen them come in. Told apart
+//from dawn, a cloud passing or a lamp warming up by how fast and how far it goes: from under
+//LIGHT_DARK_BELOW to over LIGHT_BRIGHT_ABOVE within this many milliseconds, and once the hold is
+//over, at least LIGHT_SWITCH_ON_RISE above the last dark reading. Speed alone is not enough: the
+//band between the two thresholds is narrow, and any rise of a few seconds crosses it quickly.
+#define LIGHT_SWITCH_ON_MS          2000
+#define LIGHT_SWITCH_ON_RISE        40
 
 #define NETWORK_CHECK_FILE          "/tmp/network_mode"
 #define FACE_STATUS_FILE            "/tmp/camera_face.json" //what the face search really does, for the web page
 #define SSID_CHECK_FILE             "/tmp/wifi.txt"
+//The camera is opened as V4L2 device 0; its controls are set through the node directly.
+#define CAMERA_DEVICE_PATH          "/dev/video0"
+//How often the camera logs the frame rate it really gets. The thresholds above are counted in
+//frames, and a camera that quietly halves its rate halves every one of them.
+#define CAMERA_FPS_LOG_SECONDS      60
 //In hotspot mode, the stored network showing up in range restarts this service to try it again,
 //instead of rebooting the whole Pi. The service runs check_wifi_or_hotspot.sh.
 #define NETWORK_RETRY_COMMAND       "/bin/systemctl restart --no-block wifi-check.service"
@@ -115,8 +170,8 @@
 #define REGEN_NIGHT_CYCLES          5   //full 0..9 sweeps per session, so about 50s each
 
 //Daytime gate for the scheduled wake ups.
-//The tubes only announce the hour while the sun is up. Face and motion are never gated: if
-//someone is standing in front of the clock at three in the morning, they want to see the time.
+//The tubes only announce the hour while the sun is up. Face and motion are not gated by the
+//clock, only by the light (LIGHT_* above): in a dark room the camera cannot see anybody reliably.
 #define DAY_START_DEFAULT           7   //fallback window, whole hours, both ends inclusive
 #define DAY_END_DEFAULT             18
 //The weather service answers "Polar Day" or "Polar Night" above the arctic circles, and the

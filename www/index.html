@@ -165,8 +165,15 @@
         }
         var when = new Date(status.time * 1000).toLocaleTimeString().slice(0, 5);
         var cascade = CASCADE_NAMES[status.cascade] || status.cascade;
+        // Both detectors only run while the room is lit well enough (LIGHT_* in defines.h).
+        var light = '';
+        if (status.light === 'dark') {
+            var since = new Date(status.light_time * 1000).toLocaleTimeString().slice(0, 5);
+            light = ' Since ' + since + ' the room has been too dark (light ' + status.brightness +
+                ' of 255): motion and face detection are paused until it gets brighter.';
+        }
         if (status.state === 'off') {
-            box.textContent = 'Since ' + when + ': face detection off, the camera is on motion only.';
+            box.textContent = 'Since ' + when + ': face detection off, the camera is on motion only.' + light;
             return;
         }
         if (status.state === 'error') {
@@ -188,7 +195,7 @@
             text += ' The requested range holds none of the sizes the search tries, so the camera ' +
                 'widened it on its own. Adjust the minimum, the maximum or the scale factor.';
         }
-        box.textContent = text;
+        box.textContent = text + light;
     }
 
     // One time box per regeneration session. The extra boxes stay in the page, hidden, so lowering

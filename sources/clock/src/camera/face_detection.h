@@ -25,6 +25,8 @@ class cFaceDetection
     Size m_minFace;
     Size m_maxFace;
     int m_consecutive{};
+    Rect m_lastFace;                //!< the face the consecutive count is following
+    Mat m_equalized;                //!< scratch for the equalised copy, reused across frames
     int m_window{};                 //!< the cascade's own window, in pixels
     std::vector<int> m_sizes;       //!< the face sizes the search really tries
     bool m_adjusted{};              //!< the configured range had none of them and was widened
@@ -34,7 +36,8 @@ class cFaceDetection
     ~cFaceDetection();
 
     bool Init(const Size &_band);
-    bool Detect(const Mat &_gray);
+    bool Detect(const Mat &_gray, uint8_t _brightness);
+    void Reset() { m_consecutive = 0; }
 
     int GetWindow() const                     { return m_window; }
     const std::vector<int> &GetSizes() const  { return m_sizes; }

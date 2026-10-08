@@ -36,6 +36,10 @@ class cMotionDetection
     protected:
     sCameraConfig *m_cameraconfig; // Reference to the camera configuration
     Mat m_prevBlur, m_curBlur, m_diff, m_thresh;   //scratch buffers, reused across frames
+    Mat m_signed;                  //signed difference, before the global change is taken out
+    Mat m_labels, m_stats, m_centroids;            //connected components, reused likewise
+    Mat m_kernelOpen, m_kernelJoin;                //morphology: drop specks, then join fragments
+    int m_lastThreshold{};         //threshold in force on the last frame, for the log
     bool m_haveprev{false};
     bool m_sawMovement{};          //did the last Check() find a moving area at all
     int m_quiet{};                 //consecutive frames with nothing moving
@@ -52,6 +56,11 @@ class cMotionDetection
 
     void Init(const Size &_band);
     int Check(const Mat &_gray);
+    void Reset();
+
+    /*! \brief Threshold the last frame pair was cut at: the configured floor, or more if the
+        \note sensor noise asked for it. Logged with the frame rate, for calibration. */
+    [[nodiscard]] int GetThreshold() const { return m_lastThreshold; }
 
     /*! \brief Whether the last Check() found a moving area, verdict or not.
         \note This is the cheap trigger the face cascade is gated on: there is no point paying

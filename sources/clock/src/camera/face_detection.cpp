@@ -133,17 +133,36 @@ bool cFaceDetection::Init(const Size &_band)
 
 cFaceDetection::~cFaceDetection() = default;
 
+/*! \brief Intersection over union of two rectangles, 0 to 1 */
+static double overlap(const Rect &_a, const Rect &_b)
+{
+    const double inter = (_a & _b).area();
+    const double uni = _a.area() + _b.area() - inter;
+    return uni > 0 ? inter / uni : 0.0;
+}
+
 /*! \brief Looks for a face in a frame the caller already captured.
-  \param _gray Grayscale detection band.
+  \param _gray Grayscale frame.
+  \param _brightness Total light of the frame, raw mean 0..255 (cLightMeter::GetBrightness).
   \return True when a face has been confirmed, false otherwise.
 
   \note The temporal confirmation the old comment described never ran: min_consecutive was 1,
   \note so a single frame the cascade fired on was enough and every false positive woke the
   \note clock. It is a real count now, which is what makes the lower minNeighbors affordable.
+  \note And it counts one face: a hit only extends the run if it overlaps the one before it
+  \note (FACE_MIN_OVERLAP). Otherwise two false positives in two different corners confirmed.
 */
-bool cFaceDetection::Detect(const Mat &_gray)
+bool cFaceDetection::Detect(const Mat &_gray, uint8_t _brightness)
 {
-    m_faceCascade.detectMultiScale(_gray, m_faces, m_cameraconfig->faceScaleFactor,
+    //see FACE_EQUALIZE_BELOW
+    const Mat *image = &_gray;
+    if(_brightness < FACE_EQUALIZE_BELOW)
+    {
+        equalizeHist(_gray, m_equalized);
+        image = &m_equalized;
+    }
+
+    m_faceCascade.detectMultiScale(*image, m_faces, m_cameraconfig->faceScaleFactor,
                                    m_cameraconfig->faceMinNeighbors,
                                    0 | CASCADE_SCALE_IMAGE, m_minFace, m_maxFace);
 
@@ -153,10 +172,32 @@ bool cFaceDetection::Detect(const Mat &_gray)
         return false;
     }
 
+    //The hit that continues the run, if any; otherwise the largest one starts a new run.
+    const Rect *pick = nullptr;
+    double best = 0.0;
+    if(m_consecutive > 0)
+        for(const Rect &face : m_faces)
+        {
+            const double o = overlap(face, m_lastFace);
+            if(o >= FACE_MIN_OVERLAP && o > best)
+            {
+                best = o;
+                pick = &face;
+            }
+        }
+    if(pick == nullptr)
+    {
+        m_consecutive = 0;
+        pick = &*std::max_element(m_faces.begin(), m_faces.end(),
+                                  [](const Rect &a, const Rect &b) { return a.area() < b.area(); });
+    }
+    m_lastFace = *pick;
+
     if(++m_consecutive < m_cameraconfig->faceMinConsecutive)
         return false;
 
-    printf("Face detected!\n");
+    printf("Face detected! (%dx%d at %d,%d)\n", m_lastFace.width, m_lastFace.height,
+           m_lastFace.x, m_lastFace.y);
     m_consecutive = 0;
 
 #ifdef EXPORT_FACE_JPG
