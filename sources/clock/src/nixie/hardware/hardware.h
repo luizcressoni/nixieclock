@@ -54,6 +54,7 @@ public:
     void SetRgb(uint8_t _r, uint8_t _g, uint8_t _b) const;
     void SetDimmerPercent(uint8_t _percent) const;
     void SetVuPercent(uint8_t _percent) const;
+    void SetVuOff() const;
     void SetVuTemperature(double _temperature);
     void SetLamp(enumLampType _type, bool _on) const;
     void SetModulation(enumHardwareType _type, enuModulationType _modulationType, uint32_t _period = 1000) const;

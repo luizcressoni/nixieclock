@@ -9,6 +9,8 @@
 #include "actions.h"
 #include <unistd.h>
 #include <cstdio>
+#include <cstdlib>
+#include <algorithm>
 #include <filesystem>
 #include <sys/reboot.h>
 #include <linux/reboot.h>
@@ -312,39 +314,33 @@ void cNixieFsm::SetStateNetwork()
     \note In this state, the FSM checks for network connectivity and transitions to either HOTSPOT or SLEEPING state.
     \note If a network connection is established, it updates the weather report and sets the state to SLEEPING.
     \note Otherwise, it checks the network status and may transition to HOTSPOT state if no WiFi is available.
+    \note The status is polled on SIG_NONE (entering the state) and on SIG_TIME_CHANGED (once a second)
+    \note only. It used to poll on every action and, while disconnected, re-post a SIG_NONE of its own:
+    \note every second tick and every camera signal then started one more SIG_NONE chain, so after a
+    \note while waiting for the network the queue held dozens of them, and once the WiFi came up each
+    \note one logged "We got a wifi connection!" and queued yet another SIG_NETWORK_CONNECTED.
 */
 bool cNixieFsm::ProcessStateNetwork(int _action)
 {
-    switch(_action)
+    if(_action != SIG_NONE && _action != SIG_TIME_CHANGED)
+        return true;
+
+    switch(getNetworkStatus())
     {
-        case SIG_NETWORK_CONNECTED:
-           LOGGER_DEBUG("Connected. Cheking for weather report");
+        case NETWORK_STATUS_WIFI:
+            LOGGER_DEBUG("We got a wifi connection! Cheking for weather report");
+            m_network_retry_wait = NETWORK_RETRY_FIRST_SECONDS;    //next outage starts over
             mcWeatherReport->UpdateForecast();
             //straight away, so the first day after a reboot does not run on the fallback window
             RefreshAstro();
             SetStateSleeping();
             break;
-        case SIG_NETWORK_HOTSPOT:
-            LOGGER_DEBUG("Setting up HOTSPOT");
+        case NETWORK_STATUS_HOTSPOT:
+            LOGGER_DEBUG("No Wifi... setting up HOTSPOT");
             SetStateHotspot();
             break;
         default:
-            switch(getNetworkStatus())
-            {
-                case NETWORK_STATUS_WIFI: 
-                    LOGGER_DEBUG("We got a wifi connection!");
-                    add_action(SIG_NETWORK_CONNECTED);
-                break;
-                case NETWORK_STATUS_HOTSPOT: 
-                    LOGGER_DEBUG("No Wifi... let's turno to hotspot");
-                    add_action(SIG_NETWORK_HOTSPOT);
-                    break;
-                default:
-                    usleep(500 * 1000); //500ms
-                    add_action(SIG_NONE);
-                    break;
-            }
-            break;
+            break;      //still waiting, the next SIG_TIME_CHANGED asks again
     }
     return true;
 }
@@ -585,6 +581,37 @@ void cNixieFsm::SetStateHotspot()
     mcNixieHardware->SetDimmerPercent(100);
     SetState(STATE_HOTSPOT);
     m_seconds = 8; // to cycle the IP to index zero
+    m_hotspot_seconds = 0;
+}
+
+/*! \brief Leaves hotspot mode to try the stored WiFi network again
+    \note Used to be a full reboot, with its countdown and the tube test, every time the network
+    \note showed up in range. Now the network script runs again (it tears the hotspot down
+    \note itself) and the FSM waits for its verdict in NETWORK, as it does at boot.
+*/
+void cNixieFsm::RetryNetwork()
+{
+    //Removed here and not just by the script: systemctl returns before the script starts, and
+    //the next tick in NETWORK would read the old HOTSPOT and come straight back here.
+    std::error_code ec;
+    fs::remove(NETWORK_CHECK_FILE, ec);
+    fs::remove(SSID_CHECK_FILE, ec);
+
+    if(std::system(NETWORK_RETRY_COMMAND) != 0)
+    {
+        LOGGER_ERROR("NixieFsm: could not restart the network script, rebooting instead");
+        SetStateReboot();
+        return;
+    }
+    m_network_retry_wait = (m_network_retry_wait < NETWORK_RETRY_NEXT_SECONDS)
+                           ? NETWORK_RETRY_NEXT_SECONDS
+                           : std::min<uint32_t>(m_network_retry_wait * 2, NETWORK_RETRY_MAX_SECONDS);
+    glogger->debug("NixieFsm: Stored network in range, trying it again "
+                   "(if it fails, the next try waits {:d}s)", m_network_retry_wait);
+    mcNixieHardware->SetLamp(enumLampAll, false);
+    mcNixieHardware->ShowNumber("      ");
+    mcNixieHardware->SetRgb(180, 255, 255);
+    SetStateNetwork();
 }
 
 /*! \brief Processes the HOTSPOT state
@@ -608,11 +635,8 @@ bool cNixieFsm::ProcessStateHotspot(int _action)
     mcNixieHardware->SetLamp(enuLampWeekday,m_seconds & 1);
     mcNixieHardware->ShowNumber(txt, enumNumberAnimFlip, 10);
 
-    if(fs::exists(SSID_CHECK_FILE))
-    {
-        LOGGER_DEBUG("SSID check file found");
-        SetStateReboot();
-    }
+    if(++m_hotspot_seconds >= m_network_retry_wait && fs::exists(SSID_CHECK_FILE))
+        RetryNetwork();
     return true;
 }
 
@@ -697,10 +721,10 @@ void cNixieFsm::SetStateRegen(uint8_t _position)
     m_regen_digit = 0;
 
     mcNixieHardware->SetAllOff();
-    mcNixieHardware->SetModulation(enumHardwareTypeVu, enuModulationTypeNone);
     mcNixieHardware->SetModulation(enumHardwareTypeRgb, enuModulationTypeNone);
     mcNixieHardware->SetModulation(enumHardwareTypeDimmer, enuModulationTypeNone);
-    mcNixieHardware->SetVuPercent(0);
+    //a physical zero: SetVuPercent(0) is the calibrated bottom of the scale, which still glows
+    mcNixieHardware->SetVuOff();
     mcNixieHardware->SetRgb(0, 0, 0);
     //full current on the tubes, ignoring the configured brightness cap, is what burns the poisoning off
     mcNixieHardware->SetMaxBrightness(100);
@@ -725,10 +749,10 @@ void cNixieFsm::SetStateRegenNight()
     m_regen_cycles = static_cast<uint32_t>(gRegenConfig.cycles);
 
     mcNixieHardware->SetAllOff();
-    mcNixieHardware->SetModulation(enumHardwareTypeVu, enuModulationTypeNone);
     mcNixieHardware->SetModulation(enumHardwareTypeRgb, enuModulationTypeNone);
     mcNixieHardware->SetModulation(enumHardwareTypeDimmer, enuModulationTypeNone);
-    mcNixieHardware->SetVuPercent(0);
+    //a physical zero: SetVuPercent(0) is the calibrated bottom of the scale, which still glows
+    mcNixieHardware->SetVuOff();
     mcNixieHardware->SetRgb(0, 0, 0);
     mcNixieHardware->SetMaxBrightness(gNixieConfig.brightness);
 

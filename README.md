@@ -202,17 +202,24 @@ Three processes and a handful of network scripts:
 | `liblogger.so` | Log shared by all three, installed in `/usr/local/lib`. |
 
 **The network decision** lives in `/usr/local/bin/check_wifi_or_hotspot.sh`, run
-once at boot by `wifi-check.service`: it waits for `wlan0` to get an IP, tests
-the internet with a ping and then either stays in Wi-Fi mode or brings up
-`dnsmasq` + `hostapd` as a hotspot. It writes the verdict to `/tmp/network_mode`,
-which `nixie` reads to decide whether to show the IP on the tubes. **The last
-line of that same script starts lighttpd** — that is why
-`lighttpd-custom.service` is installed but **disabled**: enabling both would put
-two instances on port 80.
+at boot by `wifi-check.service`: it waits up to 90 s for `wlan0` to associate
+with the stored network and get a DHCP lease, and otherwise brings up
+`dnsmasq` + `hostapd` as a hotspot. It does **not** need the internet to answer:
+after a power cut the router's Wi-Fi comes back long before its uplink, and the
+clock stays on Wi-Fi while the forecast and NTP catch up on their own. It writes
+the verdict to `/tmp/network_mode`, which `nixie` reads to decide whether to show
+the IP on the tubes. **The last line of that same script starts lighttpd** — that
+is why `lighttpd-custom.service` is installed but **disabled**: enabling both
+would put two instances on port 80.
 
 Meanwhile, `check_ssid.service` runs `check_ssid.sh` in a loop, looking for the
-stored network. When it shows up, the script creates `/tmp/wifi.txt` — that is
-how a clock stuck in hotspot mode finds out the router is back.
+stored network. When it shows up, the script creates `/tmp/wifi.txt`. A clock in
+hotspot mode that sees it restarts `wifi-check.service` (no reboot): the script
+tears the hotspot down and tries Wi-Fi again. The first try comes after a minute
+in hotspot mode; every try that lands back in hotspot mode waits longer for the
+next one (5, 10, 20, then every 30 minutes), because each one takes the hotspot
+down for up to a minute and a half — a network in range with a wrong password
+would otherwise keep kicking you off the configuration page.
 
 `hostapd` and `dnsmasq` are **disabled at boot** on purpose: the script above
 starts them on demand. Disabled, not masked — masking would stop the script

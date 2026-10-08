@@ -52,6 +52,8 @@ protected:
     uint32_t m_seconds_on = 0;
     uint32_t m_seconds_lock = 0;
     uint8_t m_ipBytes[4] = {0, 0, 0, 0};
+    uint32_t m_hotspot_seconds = 0;     //time spent in hotspot mode since entering it
+    uint32_t m_network_retry_wait = NETWORK_RETRY_FIRST_SECONDS;   //see NETWORK_RETRY_*
     uint8_t m_testvalue = 9;
     //whether the ambient light has the tubes dimmed right now. A member rather than a local
     //static so the paths that reset the brightness themselves can clear it, instead of leaving
@@ -79,6 +81,7 @@ protected:
     void SetStateTemporary(uint32_t _seconds_on);
     void SetStateError(int _action);
     void SetStateReboot();
+    void RetryNetwork();
     void SetStateRegen(uint8_t _position);
     void SetStateRegenNight();
     void StopStateRegen();

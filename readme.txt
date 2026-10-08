@@ -125,7 +125,8 @@ On error, the clock shows a code on the display:
 Where to look:
 
   tail -f /tmp/nixie.txt          the clock's log (same as the Logs tab)
-  cat /tmp/hotspot_debug.log      what the network script decided at boot
+  cat /tmp/hotspot_debug.log      what the network script decided, at boot
+                                  and on every retry from hotspot mode
   cat /tmp/network_mode           WIFI or HOTSPOT
   ls /tmp/wifi.txt                if it exists, the stored network is in range
   journalctl -u nixie -u camera -f
@@ -152,8 +153,9 @@ Everything in /tmp vanishes on every boot. On purpose: the card thanks you.
   /usr/local/lib/liblogger.so     log shared by the three programs
   /usr/local/sbin/lighttpd        the web server
 
-  /usr/local/bin/check_wifi_or_hotspot.sh   picks Wi-Fi or hotspot at boot,
-                                            then starts lighttpd
+  /usr/local/bin/check_wifi_or_hotspot.sh   picks Wi-Fi or hotspot at boot
+                                            (and again when the home network
+                                            shows up), then starts lighttpd
   /usr/local/bin/check_ssid.sh              keeps looking for the home network
 
   /etc/systemd/system/            nixie, camera, wifi-check, check_ssid and

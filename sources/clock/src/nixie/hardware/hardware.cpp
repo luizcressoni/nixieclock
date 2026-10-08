@@ -84,6 +84,15 @@ void cNixieHardware::SetVuPercent(uint8_t _percent) const {
     }
 }
 
+/*! \brief Turns the bargraph really off
+    \note SetVuPercent(0) lands on the calibrated vu_min, the bottom of the scale, which still
+    \note glows a little. This writes a physical zero instead.
+*/
+void cNixieHardware::SetVuOff() const {
+    if(mNixieVu)
+        mNixieVu->SetPhysicalZero();
+}
+
 /*! \brief Sets a Lamp
     \param _temperature The temperature in degrees Celsius to set the vu to.
     \note If mNixieVu is not initialized, this function does nothing.

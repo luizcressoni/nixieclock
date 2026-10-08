@@ -54,6 +54,21 @@ void cNixiePwm::SetAbsoluteValue(uint8_t _u8value)
     gpioPWM(mu8pwmpin, _u8value);
 }
 
+/*! \brief Drives the output to a real 0, bypassing the calibrated limits
+    \note SetPercent(0) writes the minimum from SetLimits, and on the bargraph that minimum is
+    \note calibrated to sit at the very bottom of the scale, which still glows a little. This is
+    \note for when the output must really be off. Modulation and the off timer are stopped too,
+    \note or the PWM thread would write the calibrated minimum back on its next pass.
+*/
+void cNixiePwm::SetPhysicalZero()
+{
+    SetModulator(enuModulationTypeNone, nullptr);
+    mTimerOff.Enable(false);
+    mu8percent = 0;
+    mu8pwm = 0;
+    gpioPWM(mu8pwmpin, 0);
+}
+
 void cNixiePwm::SetPercent(uint8_t _u8percent, uint32_t _u32timeoff)
 {
     SetPercent(_u8percent);

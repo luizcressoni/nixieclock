@@ -38,6 +38,7 @@ class cNixiePwm
     virtual void        SetPercent(uint8_t _u8percent, uint32_t _u32timeoff);
     virtual uint8_t     GetPercent(){ return mu8percent;};
     virtual void        SetAbsoluteValue(uint8_t _u8value);
+    virtual void        SetPhysicalZero();
     virtual void        SetModulator(enuModulationType _enuModulationType, cModulation *_modulation = nullptr);
     virtual cModulation *GetModulatorPtr(){ return mpModulation;};
 

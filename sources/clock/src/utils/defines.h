@@ -72,6 +72,16 @@
 #define NETWORK_CHECK_FILE          "/tmp/network_mode"
 #define FACE_STATUS_FILE            "/tmp/camera_face.json" //what the face search really does, for the web page
 #define SSID_CHECK_FILE             "/tmp/wifi.txt"
+//In hotspot mode, the stored network showing up in range restarts this service to try it again,
+//instead of rebooting the whole Pi. The service runs check_wifi_or_hotspot.sh.
+#define NETWORK_RETRY_COMMAND       "/bin/systemctl restart --no-block wifi-check.service"
+//Seconds in hotspot mode before the first try, then the wait doubles after every try that lands
+//back in hotspot mode, up to the cap. Each try takes the hotspot down for up to a minute and a
+//half, which is somebody on the configuration page losing it: a network in range with a wrong
+//password must not do that every half minute.
+#define NETWORK_RETRY_FIRST_SECONDS 60
+#define NETWORK_RETRY_NEXT_SECONDS  300
+#define NETWORK_RETRY_MAX_SECONDS   1800
 //The cascades the web page can pick from. The config stores the name, never a path.
 #define CASCADE_LBP_IMPROVED_FILE   "./lbpcascade_frontalface_improved.xml"
 #define CASCADE_LBP_FILE            "./lbpcascade_frontalface.xml"
