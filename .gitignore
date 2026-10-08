@@ -56,3 +56,8 @@ sources/haarcascade_frontalface_default.xml
 .vscode/
 *.swp
 *~
+
+# ------------------------------------------------------------------- PCB
+# OrCAD Layout autosaves (every 10 min) and their log. NIXIE_FINAL.MAX is the board.
+projeto/hardware/pcb/BACKUP*.MAX
+projeto/hardware/pcb/layout.log

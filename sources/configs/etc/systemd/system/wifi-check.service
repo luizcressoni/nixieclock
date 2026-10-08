@@ -4,9 +4,10 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=oneshot
+# simple, not oneshot: the script ends running lighttpd in the foreground, so as a oneshot the
+# unit never left "activating" and anything ordered after it would never start.
+Type=simple
 ExecStart=/usr/local/bin/check_wifi_or_hotspot.sh
-RemainAfterExit=true
 
 [Install]
 WantedBy=multi-user.target
