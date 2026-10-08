@@ -416,22 +416,24 @@ bool cNixieFsm::ProcessStateSleeping(int _action)
         LOGGER_DEBUG("Motion detected... Waking up");
         //Deliberately not on_timeout: movement is weaker evidence that somebody is actually
         //looking at the clock than a face is, and it gets a short glance rather than a session.
-        SetStateAwake(MOTION_WAKE_SECONDS, enumDisplayModeTime);
+        SetStateAwake(gCameraConfig.motion_timeout, enumDisplayModeTime);
         break;
     case SIG_MOTION_DETECTED_LEFT:
     case SIG_MOTION_DETECTED_RIGHT:
         //A sweep while the tubes are dark wakes them straight onto the mode it asked for,
         //rather than spending the first gesture just switching the clock on and making the
-        //user repeat it. The base is reset to Time first, so the result depends only on the
-        //gesture and not on whatever the clock happened to be showing when it fell asleep
-        //hours earlier. The lock keeps the half minute date/time rotation from overwriting
-        //the mode a second later, which it otherwise would.
-        menumDisplayMode = enumDisplayModeTime;
-        CycleDisplayMode(_action == SIG_MOTION_DETECTED_RIGHT);
+        //user repeat it. Dark is the last place in the cycle (see CycleDisplayMode), so forward
+        //is the first mode, Time, and back is the last one, Clouds -- whatever the clock happened
+        //to be showing when it fell asleep hours earlier. The lock keeps the half minute
+        //date/time rotation from overwriting the mode a second later, which it otherwise would.
+        menumDisplayMode = (_action == SIG_MOTION_DETECTED_RIGHT) ? enumDisplayModeTime
+                                                                  : enumDisplayModeCloud;
         glogger->debug("Gesture {:s} while asleep... waking up on {:s}",
                        (_action == SIG_MOTION_DETECTED_RIGHT) ? "RIGHT" : "LEFT",
                        get_display_mode_name(menumDisplayMode));
-        SetStateAwake(MOTION_GESTURE_SECONDS, menumDisplayMode);
+        //A sweep is the stronger kind of motion: it must not get less than plain movement would
+        SetStateAwake(std::max<uint32_t>(MOTION_GESTURE_SECONDS, gCameraConfig.motion_timeout),
+                      menumDisplayMode);
         m_seconds_lock = 5;
         break;
 
@@ -455,8 +457,11 @@ void cNixieFsm::SetStateAwake(uint32_t _seconds_on, enumDisplayMode _mode)
     const uint32_t ceiling = (gCameraConfig.on_timeout > 0)
                              ? static_cast<uint32_t>(gCameraConfig.on_timeout) : _seconds_on;
     m_seconds_on = (_seconds_on > ceiling) ? ceiling : _seconds_on;
+    //Anything that keeps the clock up ends the goodbye tour: somebody is still there.
+    m_touring = false;
     if(GetState() == STATE_AWAKE)
         return;
+    m_awake_seconds = 0;
     mcNixieHardware->SetLamp(enumLampAll, false);
     mcNixieHardware->SetVuPercent(0);
     auto forecast = mcWeatherReport->GetForecast();
@@ -468,8 +473,13 @@ void cNixieFsm::SetStateAwake(uint32_t _seconds_on, enumDisplayMode _mode)
     SetState(STATE_AWAKE);
 }
 
-/*! \brief Steps the display mode one place forward or back, wrapping at both ends.
+/*! \brief Steps the display mode one place forward or back.
     \param _forward True to advance, false to go back.
+    \return False when the step is past the last mode: the clock is to go dark.
+    \note The cycle is Time, Date, Temp Limit, Clouds, dark. Only forward reaches dark, from Clouds,
+    \note three deliberate sweeps away from the time. Back from Time wraps to Clouds instead: the
+    \note time is what the clock shows nearly always, and back is the one direction a person
+    \note walking past is as likely to produce as forward -- see below.
     \note Both sweep directions cycle now, in opposite directions. A leftward sweep used to
     \note put the clock to sleep, and that could not be made safe: a person simply walking
     \note past the clock traces a clean one way path across the band and is indistinguishable
@@ -479,15 +489,16 @@ void cNixieFsm::SetStateAwake(uint32_t _seconds_on, enumDisplayMode _mode)
     \note instead of the time; it no longer turns the clock off in somebody's face. The tubes
     \note sleep on their own timer, which is the only thing that was ever reliable about it.
 */
-void cNixieFsm::CycleDisplayMode(bool _forward)
+bool cNixieFsm::CycleDisplayMode(bool _forward)
 {
     auto aux = static_cast<int>(menumDisplayMode);
     aux += _forward ? 1 : -1;
     if(aux > enumDisplayModeCloud)
-        aux = enumDisplayModeTime;
-    else if(aux < enumDisplayModeTime)
+        return false;
+    if(aux < enumDisplayModeTime)
         aux = enumDisplayModeCloud;
     menumDisplayMode = static_cast<enumDisplayMode>(aux);
+    return true;
 }
 
 const char *cNixieFsm::get_display_mode_name(enumDisplayMode _mode) const
@@ -523,13 +534,28 @@ bool cNixieFsm::ProcessStateAwake(int _action)
                 menumDisplayMode = enumDisplayModeTime;
         }
 
-        SetDisplay(menumDisplayMode);
-
+        m_awake_seconds++;
         if(m_seconds_on == 0)
         {
-            SetStateSleeping();
-            return true;
+            //See AWAKE_TOUR_AFTER_SECONDS: after a long enough stretch the clock walks through
+            //every mode before it sleeps, and the timer runs out once per mode.
+            if(!m_touring && m_awake_seconds > AWAKE_TOUR_AFTER_SECONDS)
+            {
+                LOGGER_DEBUG("Going to sleep, showing every mode first");
+                m_touring = true;
+                menumDisplayMode = enumDisplayModeTime;
+            }
+            else if(!m_touring || !CycleDisplayMode(true))
+            {
+                m_touring = false;
+                SetStateSleeping();
+                return true;
+            }
+            m_seconds_on = AWAKE_TOUR_STEP_SECONDS;
+            m_seconds_lock = AWAKE_TOUR_STEP_SECONDS + 1;   //no date/time rotation over it
         }
+
+        SetDisplay(menumDisplayMode);
         break;
     case SIG_FACE_DETECTED:
         LOGGER_DEBUG("Face detected... keeping up");
@@ -541,7 +567,13 @@ bool cNixieFsm::ProcessStateAwake(int _action)
         break;
     case SIG_MOTION_DETECTED_LEFT:
     case SIG_MOTION_DETECTED_RIGHT:
-        CycleDisplayMode(_action == SIG_MOTION_DETECTED_RIGHT);
+        if(!CycleDisplayMode(_action == SIG_MOTION_DETECTED_RIGHT))
+        {
+            LOGGER_DEBUG("Gesture past the last mode... going to sleep");
+            m_touring = false;
+            SetStateSleeping();
+            break;
+        }
         glogger->debug("Gesture {:s}... cycling display to {:s}",
                        (_action == SIG_MOTION_DETECTED_RIGHT) ? "RIGHT" : "LEFT",
                        get_display_mode_name(menumDisplayMode));

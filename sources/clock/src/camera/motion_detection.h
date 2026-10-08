@@ -43,11 +43,16 @@ class cMotionDetection
     bool m_haveprev{false};
     bool m_sawMovement{};          //did the last Check() find a moving area at all
     int m_quiet{};                 //consecutive frames with nothing moving
+    bool m_reported{};             //this episode already gave its gesture: the rest of it is not one
     int m_minTravel{};             //net displacement a gesture needs, scaled in Init()
     std::vector<int> m_path;       //centre of the moving object, one entry per frame
     cTimer m_anyCooldown;          //rate limit for the undirected presence report
+    int m_lightRejects{};          //frame pairs thrown out as a change of light, since last asked
 
     int ComputeMotionCenter(int _threshold);
+    int GlobalShift() const;
+    bool IsLightChange() const;
+    int JudgePath(const char **_why) const;
     int CloseEpisode();
 
     public:
@@ -66,6 +71,9 @@ class cMotionDetection
         \note This is the cheap trigger the face cascade is gated on: there is no point paying
         \note for a whole frame of Haar/LBP windows while the room has been still for seconds. */
     [[nodiscard]] bool SawMovement() const { return m_sawMovement; }
+
+    /*! \brief Frame pairs discarded as a change of light since the last call, for the log. */
+    int TakeLightRejects() { const int n = m_lightRejects; m_lightRejects = 0; return n; }
 
     /*! \brief Whether a gesture is being traced right now.
         \note The face cascade stands down while this is true. A sweep is three to six frames

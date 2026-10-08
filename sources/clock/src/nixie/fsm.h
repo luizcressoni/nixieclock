@@ -39,7 +39,7 @@ protected:
     };
     enumDisplayMode menumDisplayMode;
     const char *get_display_mode_name(enumDisplayMode _mode) const;
-    void CycleDisplayMode(bool _forward);
+    bool CycleDisplayMode(bool _forward);
 
     /*! \brief Which of the two regeneration routines STATE_REGEN is currently running */
     enum enumRegenMode
@@ -51,6 +51,8 @@ protected:
     uint32_t m_seconds = 0;
     uint32_t m_seconds_on = 0;
     uint32_t m_seconds_lock = 0;
+    uint32_t m_awake_seconds = 0;       //time lit since the clock last woke, see AWAKE_TOUR_AFTER_SECONDS
+    bool m_touring = false;             //showing every mode once before going to sleep
     uint8_t m_ipBytes[4] = {0, 0, 0, 0};
     uint32_t m_hotspot_seconds = 0;     //time spent in hotspot mode since entering it
     uint32_t m_motion_blank = 0;        //seconds undirected motion is ignored for, see MOTION_BLANK_SECONDS

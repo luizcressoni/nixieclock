@@ -5,7 +5,7 @@
 void load_config_file();
 
 extern sNixieConfig    gNixieConfig;
-extern sCameraConfig   gCameraConfig;   //!< the clock only reads on_timeout out of this one
+extern sCameraConfig   gCameraConfig;   //!< the clock only reads on_timeout and motion_timeout out of this one
 extern sLocation       gLocation;
 extern sWifiConfig     gWifiConfig;
 extern sScheduleConfig gScheduleConfig;

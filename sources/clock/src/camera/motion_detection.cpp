@@ -50,10 +50,10 @@ static int median_s16(const Mat &_img)
     \param _threshold Configured threshold for motion detection, used as a floor
     \return Centre X of that object, or -1 if nothing is moving
 
-    \note The largest blob, not the mean of all of them. Averaging the centroids of every
-    \note moving blob returns the centre of nothing in particular: a hand crossing in front of
-    \note a person who is also shifting about produced a figure pulled between the two, which
-    \note moved less than the hand did and sometimes in the other direction.
+    \note The largest blob and those near its size, not the mean of all of them. Averaging the
+    \note centroids of every moving blob returns the centre of nothing in particular: a hand
+    \note crossing in front of a person who is also shifting about produced a figure pulled
+    \note between the two, which moved less than the hand did and sometimes in the other direction.
 
     \note Only the current frame is blurred here: the previous one was blurred on the pass that
     \note captured it and has been kept. The old code blurred both halves of every pair and ran
@@ -72,26 +72,28 @@ int cMotionDetection::ComputeMotionCenter(int _threshold)
 
     subtract(m_curBlur, m_prevBlur, m_signed, noArray(), CV_16S);
 #if MOTION_COMPENSATE_GLOBAL
-    const int shift = median_s16(m_signed);
+    const int shift = GlobalShift();
     if (shift != 0)
         subtract(m_signed, Scalar(shift), m_signed);
 #endif
     convertScaleAbs(m_signed, m_diff);
 
-    //Most of any frame is still background, so the median difference is the sensor noise.
-    const int noise = median_u8(m_diff);
+    //Most of any strip is still background, so its median difference is the sensor noise. Per
+    //strip, the quietest one, for the same reason as GlobalShift(): with a hand close to the lens
+    //over half the band changes, the whole band median was the hand, and the threshold rose to six
+    //times the hand's own contrast and cut it out.
+    int noise = 255;
+    const int strip = m_diff.cols / MOTION_GLOBAL_STRIPS;
+    for (int i = 0; i < MOTION_GLOBAL_STRIPS; i++)
+        noise = std::min(noise, median_u8(m_diff(Rect(i * strip, 0, strip, m_diff.rows))));
     m_lastThreshold = std::max(_threshold, MOTION_NOISE_K * noise);
     threshold(m_diff, m_thresh, m_lastThreshold, 255, THRESH_BINARY);
 
-    //This guard is meant to throw out a light being switched on, or a cloud crossing the sun,
-    //which light the whole band at once and are not motion. Measured against FRAME_WIDTH *
-    //FRAME_HEIGHT it never could: the band is half the frame, so the ratio topped out at
-    //exactly 0.5 and the test was for more than 0.5. Against the band's own area it works.
-    //With the global change compensated above, what is left for it is the uneven change: a lamp
-    //lighting one side of the room more than the other.
-    const double activeRatio = static_cast<double>(countNonZero(m_thresh)) /
-                               static_cast<double>(m_thresh.total());
-    if (activeRatio > MOTION_GLOBAL_CHANGE) return -1;
+    if (IsLightChange())
+    {
+        m_lightRejects++;
+        return -1;
+    }
 
     morphologyEx(m_thresh, m_thresh, MORPH_OPEN, m_kernelOpen);
     dilate(m_thresh, m_thresh, m_kernelJoin);
@@ -99,15 +101,65 @@ int cMotionDetection::ComputeMotionCenter(int _threshold)
     const int count = connectedComponentsWithStats(m_thresh, m_labels, m_stats, m_centroids, 8, CV_32S);
 
     int largest = 0;
-    int center = -1;
     for (int i = 1; i < count; i++)     //label 0 is the background
+        largest = std::max(largest, m_stats.at<int>(i, CC_STAT_AREA));
+    if (largest < MOTION_MIN_CONTOUR)
+        return -1;
+
+    //One object moving fast leaves two blobs in a frame difference: where it arrived and where it
+    //left. When they are about the same size, "the largest" alternated between them from frame to
+    //frame, and a clean sweep came out as a zigzag that failed the direction test. Both are taken,
+    //weighted by area, and anything much smaller -- somebody behind the hand shifting their
+    //weight -- still is not.
+    double sum = 0, weight = 0;
+    for (int i = 1; i < count; i++)
     {
         const int area = m_stats.at<int>(i, CC_STAT_AREA);
-        if (area < MOTION_MIN_CONTOUR || area <= largest) continue;  // noise, or not the biggest
-        largest = area;
-        center = cvRound(m_centroids.at<double>(i, 0));
+        if (area < MOTION_MIN_CONTOUR || area * MOTION_BLOB_RATIO < largest) continue;
+        sum += m_centroids.at<double>(i, 0) * area;
+        weight += area;
     }
-    return center;
+    return cvRound(sum / weight);
+}
+
+/*! \brief The part of the frame difference that is a change of light, not of anything in it
+    \return The shift to take out of the signed difference.
+    \note The median of the strip medians whose magnitude is smallest, not the median of the whole
+    \note band. A change of light moves every strip together, so any one of them measures it. A hand
+    \note close to the lens, sweeping, changes more than half the band between two frames, and the
+    \note whole band median was then the hand: subtracting it erased the hand and left the
+    \note background as the "motion". The strips the hand is not in still read the light.
+*/
+int cMotionDetection::GlobalShift() const
+{
+    const int strip = m_signed.cols / MOTION_GLOBAL_STRIPS;
+    int best = 0;
+    bool first = true;
+    for (int i = 0; i < MOTION_GLOBAL_STRIPS; i++)
+    {
+        const int m = median_s16(m_signed(Rect(i * strip, 0, strip, m_signed.rows)));
+        if (first || abs(m) < abs(best))
+            best = m;
+        first = false;
+    }
+    return best;
+}
+
+/*! \brief Whether what is left after the compensation is a change of light anyway
+    \note A light being switched on or a cloud crossing the sun, unevenly enough to get through
+    \note the compensation. It used to be any frame pair with more than half the band changed,
+    \note which is also exactly what a hand sweeping close to the lens looks like: the strongest
+    \note and most deliberate gesture there is, thrown away as a light. Now every strip must have
+    \note changed. A hand, however close, leaves some of the band alone; a light does not.
+*/
+bool cMotionDetection::IsLightChange() const
+{
+    const int strip = m_thresh.cols / MOTION_GLOBAL_STRIPS;
+    const double area = static_cast<double>(strip) * m_thresh.rows;
+    for (int i = 0; i < MOTION_GLOBAL_STRIPS; i++)
+        if (countNonZero(m_thresh(Rect(i * strip, 0, strip, m_thresh.rows))) <= MOTION_GLOBAL_CHANGE * area)
+            return false;
+    return true;
 }
 
 /*! \brief Constructor
@@ -136,23 +188,29 @@ void cMotionDetection::Init(const Size &_band)
            _band.width, _band.height, m_minTravel);
 }
 
-/*! \brief Judges the path collected so far and clears it.
+/*! \brief Judges the path collected so far, without touching it.
+    \param _why Receives why the verdict is what it is, for the log.
     \return MOTION_LEFT, MOTION_RIGHT, or MOTION_NONE when the path says nothing certain.
 
-    \note Two tests, both of which must pass. The path has to have gone somewhere -- a net
-    \note displacement of a quarter of the band -- and it has to have gone there without
-    \note changing its mind, which is what rules out a wave: a wave ends up near where it
-    \note started and spends half its steps disagreeing with its own net direction.
-    \note Returning NONE rather than guessing is the point of the whole exercise. Undirected
-    \note movement has already been reported as MOTION_ANY while the gesture was running, so
-    \note nothing is lost by declining to invent a direction for it.
+    \note First the whole path, two tests that must both pass. It has to have gone somewhere -- a
+    \note net displacement of a quarter of the band -- and it has to have gone there without
+    \note changing its mind, which is what rules out a wave: a wave ends up near where it started
+    \note and spends half its steps disagreeing with its own net direction.
+    \note Then, if that failed, the longest run in one direction inside it. A sweep is often not
+    \note the whole episode: whoever made it is still in front of the clock, shifting about, and
+    \note the episode only ends once the band has been still for a few frames. That tail used to
+    \note vote on the sweep and outvote it. A run counts if it travelled as far as a sweep must and
+    \note nothing before or after it went back over more than half of it -- a wave does exactly
+    \note that, a fidget does not.
+    \note Returning NONE rather than guessing is still the point. Undirected movement has already
+    \note been reported as MOTION_ANY while the gesture was running, so nothing is lost by it.
 */
-int cMotionDetection::CloseEpisode()
+int cMotionDetection::JudgePath(const char **_why) const
 {
     const size_t samples = m_path.size();
     if (samples < MOTION_MIN_SAMPLES)
     {
-        m_path.clear();
+        *_why = "too short";
         return MOTION_NONE;
     }
 
@@ -165,23 +223,73 @@ int cMotionDetection::CloseEpisode()
         steps++;
         if ((step > 0) == (net > 0)) agree++;
     }
-    m_path.clear();
-
-    if (abs(net) < m_minTravel)
-        return MOTION_NONE;
-    if (steps == 0 || (agree * 100 / steps) < MOTION_MONOTONIC_PERCENT)
-        return MOTION_NONE;
+    int travel = net;
+    if (abs(net) >= m_minTravel && steps > 0 && agree * 100 / steps >= MOTION_MONOTONIC_PERCENT)
+        *_why = "whole path";
+    else
+    {
+        //Longest run of steps that all agree; small steps go along with either direction.
+        size_t bestFrom = 0, bestTo = 0, from = 0;
+        int dir = 0;
+        for (size_t i = 1; i < samples; i++)
+        {
+            const int step = m_path[i] - m_path[i - 1];
+            if (abs(step) >= MOTION_STEP_MIN)
+            {
+                const int sign = step > 0 ? 1 : -1;
+                if (dir != 0 && sign != dir)
+                    from = i - 1;               //the run ends here and the next starts
+                dir = sign;
+            }
+            if (abs(m_path[i] - m_path[from]) > abs(m_path[bestTo] - m_path[bestFrom]))
+            {
+                bestFrom = from;
+                bestTo = i;
+            }
+        }
+        travel = m_path[bestTo] - m_path[bestFrom];
+        if (abs(travel) < m_minTravel || bestTo - bestFrom + 1 < MOTION_MIN_SAMPLES)
+        {
+            *_why = (abs(net) < m_minTravel) ? "did not travel" : "no direction";
+            return MOTION_NONE;
+        }
+        //Went back over half of it, before or after: a wave, or the far leg of one.
+        const int a = m_path[bestFrom], b = m_path[bestTo], half = abs(travel) / 2;
+        const int up = travel > 0 ? 1 : -1;
+        for (size_t i = 0; i < samples; i++)
+        {
+            if ((i > bestTo && (m_path[i] - b) * up < -half) ||
+                (i < bestFrom && (m_path[i] - a) * up > half))
+            {
+                *_why = "wave";
+                return MOTION_NONE;
+            }
+        }
+        *_why = "run inside the path";
+    }
 
     //Convention inherited from the original code: an object travelling to the right in the
     //image reports MOTION_LEFT. Kept deliberately -- the camera faces the room, so the image
     //is mirrored with respect to whoever is standing in front of it.
-    if (net > 0)
-    {
-        printf("Gesture to the left (%d px over %zu frames)\n", net, samples);
-        return MOTION_LEFT;
-    }
-    printf("Gesture to the right (%d px over %zu frames)\n", -net, samples);
-    return MOTION_RIGHT;
+    return (travel > 0) ? MOTION_LEFT : MOTION_RIGHT;
+}
+
+/*! \brief Judges the path collected so far, logs the verdict and clears it.
+    \note One line per episode that had anything in it: without them there is no telling, from
+    \note the clock, whether a gesture that did nothing was never seen, seen too briefly, or
+    \note seen and judged undirected.
+*/
+int cMotionDetection::CloseEpisode()
+{
+    const char *why = "";
+    const int verdict = JudgePath(&why);
+    if (m_path.size() >= MOTION_MIN_SAMPLES)
+        printf("Motion episode: %zu frames, %d px net -> %s (%s)\n", m_path.size(),
+               m_path.back() - m_path.front(),
+               verdict == MOTION_LEFT ? "gesture LEFT" : verdict == MOTION_RIGHT ? "gesture RIGHT" : "no gesture",
+               why);
+    m_path.clear();
+    return verdict;
 }
 
 /*! \brief Forgets the previous frame and any gesture in progress.
@@ -194,6 +302,7 @@ void cMotionDetection::Reset()
     m_haveprev = false;
     m_sawMovement = false;
     m_quiet = 0;
+    m_reported = false;
     m_path.clear();
 }
 
@@ -226,19 +335,48 @@ int cMotionDetection::Check(const Mat &_gray)
     {
         //Nothing moving. A gesture is only over once the band has been quiet for a few frames
         //in a row, so that a hand pausing mid sweep does not split one gesture into two.
-        if (++m_quiet >= MOTION_EPISODE_END_FRAMES && !m_path.empty())
-            return CloseEpisode();
+        if (++m_quiet >= MOTION_EPISODE_END_FRAMES)
+        {
+            m_reported = false;
+            if (!m_path.empty())
+                return CloseEpisode();
+        }
         return MOTION_NONE;
     }
 
     m_sawMovement = true;
     m_quiet = 0;
+    //The sweep was reported early, below; what is left of the same movement is its tail, and it
+    //must not count again. It still says somebody is there.
+    if (m_reported)
+    {
+        if (m_anyCooldown.IsTimeOut())
+        {
+            m_anyCooldown.SetTimeOut(MOTION_ANY_COOLDOWN_MS);
+            return MOTION_ANY;
+        }
+        return MOTION_NONE;
+    }
     m_path.push_back(center);
 
     //Past this length it is not a gesture, it is somebody moving about in front of the clock.
     //Judge what there is and start over, so the path cannot grow without bound.
     if (m_path.size() >= MOTION_PATH_MAX)
         return CloseEpisode();
+
+    //Somebody who sweeps and then stays in front of the clock keeps the band busy, and the
+    //episode would not end, or be judged, until they stood still or MOTION_PATH_MAX frames had
+    //gone by. As long as a gesture could still be in progress, a sweep already traced is reported
+    //as soon as it is there.
+    if (m_path.size() == MOTION_GESTURE_FRAMES)
+    {
+        const char *why = "";
+        if (JudgePath(&why) != MOTION_NONE)
+        {
+            m_reported = true;
+            return CloseEpisode();
+        }
+    }
 
     //Somebody walking up to the clock produces plenty of movement with no direction to it yet,
     //and the old code had no way to say so: MOTION_ANY existed in the protocol and in the state

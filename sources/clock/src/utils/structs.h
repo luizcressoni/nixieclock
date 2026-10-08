@@ -30,6 +30,7 @@ struct sCameraConfig
     int faceSizeMin;        //!< face: smallest face searched for, in pixels
     int faceSizeMax;        //!< face: largest face searched for, in pixels
     int on_timeout;         //!< seconds the tubes stay lit after a detection
+    int motion_timeout;     //!< seconds undirected motion alone keeps them lit, at most on_timeout
     int fps;
 };
 

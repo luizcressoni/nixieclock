@@ -152,6 +152,10 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
     //The frame rate the camera really delivers, logged now and then (CAMERA_FPS_LOG_SECONDS).
     int fpsFrames = 0;
     auto fpsStart = steady_clock::now();
+    //What the cascade costs, over the same span: every millisecond of it is a frame the motion
+    //detector did not sample, and a sweep is only a handful of frames.
+    int faceRuns = 0;
+    long faceMsTotal = 0, faceMsMax = 0;
 
     while(true){
         int signal_value = 0;
@@ -177,12 +181,16 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
         const auto fpsSpan = duration_cast<milliseconds>(frame_start - fpsStart).count();
         if(fpsSpan >= CAMERA_FPS_LOG_SECONDS * 1000)
         {
-            printf("Camera: %.1f fps (asked for %d), light %u (%s), motion threshold %d\n",
+            printf("Camera: %.1f fps (asked for %d), light %u (%s), motion threshold %d, "
+                   "%d light changes, face search %d runs avg %ld ms max %ld ms\n",
                    fpsFrames * 1000.0 / static_cast<double>(fpsSpan), cameraConfig.fps,
                    light.GetBrightness(), light.IsBright() ? "bright" : "dark",
-                   motionDetection->GetThreshold());
+                   motionDetection->GetThreshold(), motionDetection->TakeLightRejects(),
+                   faceRuns, faceRuns ? faceMsTotal / faceRuns : 0L, faceMsMax);
             fpsFrames = 0;
             fpsStart = frame_start;
+            faceRuns = 0;
+            faceMsTotal = faceMsMax = 0;
         }
 
         //The light gate (LIGHT_* in defines.h). Both detectors stand down in a dark room and start
@@ -256,7 +264,13 @@ static int run_detection(VideoCapture &cap, cSignal &NixieSignal, sCameraConfig 
             if(++faceTick >= (active ? FACE_DETECT_EVERY_N : FACE_IDLE_EVERY_N))
             {
                 faceTick = 0;
-                if(FaceDetection->Detect(gray, light.GetBrightness()))
+                const auto faceStart = steady_clock::now();
+                const bool found = FaceDetection->Detect(gray, light.GetBrightness());
+                const long faceMs = duration_cast<milliseconds>(steady_clock::now() - faceStart).count();
+                faceRuns++;
+                faceMsTotal += faceMs;
+                faceMsMax = std::max(faceMsMax, faceMs);
+                if(found)
                     NixieSignal.Send(NIXIE_SIGNAL, SIG_FACE_DETECTED);
             }
         }

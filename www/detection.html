@@ -90,6 +90,10 @@
         <label for="on_timeout">Display time after detection (seconds, 5 to 3600):</label>
         <input type="text" id="on_timeout" name="on_timeout" data-key="detection.on_timeout" inputmode="numeric" required>
 
+        <label for="motion_timeout">Display time after motion only (seconds, 5 up to the display time above):</label>
+        <input type="text" id="motion_timeout" name="motion_timeout" data-key="detection.motion_timeout" inputmode="numeric" required>
+        <p class="hint">How long movement alone, with no face seen, keeps the tubes lit.</p>
+
         <label for="fps">Camera frames per second (1 to 30):</label>
         <input type="text" id="fps" name="fps" data-key="detection.fps" inputmode="numeric" required>
 

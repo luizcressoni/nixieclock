@@ -24,6 +24,7 @@
 		"face_size_min":	45,
 		"face_size_max":	200,
 		"on_timeout":	90,
+		"motion_timeout":	10,
 		"fps":	15
 	},
 	"hardware":	{

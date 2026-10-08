@@ -66,11 +66,19 @@
 //Measured on synthetic gestures, this also recovers the slow sweep that the old per frame
 //deadband threw away entirely.
 #define MOTION_MIN_CONTOUR          100     //pixels in a moving blob below which it is noise
-#define MOTION_GLOBAL_CHANGE        0.5     //fraction of the band that means a light changed
+#define MOTION_BLOB_RATIO           3       //blobs this many times smaller than the largest are left out
+#define MOTION_GLOBAL_CHANGE        0.5     //fraction of every strip that means a light changed
+#define MOTION_GLOBAL_STRIPS        8       //vertical strips the band is measured in, for both
 #define MOTION_PRESENCE_FRAMES      3       //frames of movement that mean "someone is there"
 #define MOTION_ANY_COOLDOWN_MS      2000    //...and how often that may be reported
-#define MOTION_WAKE_SECONDS         10      //how long undirected motion alone keeps the tubes lit
-#define MOTION_GESTURE_SECONDS      15      //...and how much a deliberate sweep is worth
+#define MOTION_WAKE_SECONDS         10      //default for how long undirected motion alone keeps the tubes lit
+#define MOTION_GESTURE_SECONDS      15      //...and how much a deliberate sweep is worth, at least
+//A clock that has been lit for a while does not just go dark: it shows each mode in turn, time,
+//date, temperatures and clouds, the same order the gestures walk, and then sleeps. Not after a
+//short wake -- the hourly chime, a glance from motion -- which would last longer as goodbye than
+//it did as display.
+#define AWAKE_TOUR_AFTER_SECONDS    30      //lit for more than this...
+#define AWAKE_TOUR_STEP_SECONDS     3       //...and each mode is shown this long on the way out
 //The tubes ramp up over three seconds when the clock wakes and down over two when it sleeps, and
 //the dimming steps them too. Seen by the camera that is a change of light, and undirected motion
 //reported during one is the clock reacting to itself: it used to wake itself straight back up

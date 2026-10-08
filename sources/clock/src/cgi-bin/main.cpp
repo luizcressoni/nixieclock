@@ -405,10 +405,11 @@ static bool process_detection()
     if(!face_cascade_from_name(get_field_value("face_cascade"), &cascade))
         return fail("Choose one of the face detectors in the list.");
 
-    int on_timeout = 0, threshold = 0, face_size_min = 0, face_size_max = 0, fps = 0;
+    int on_timeout = 0, motion_timeout = 0, threshold = 0, face_size_min = 0, face_size_max = 0, fps = 0;
     int face_min_neighbors = 0, face_min_consecutive = 0;
     double face_scale_factor = 0;
     if(!read_int_field("on_timeout", "Display time", 5, 3600, &on_timeout) ||
+       !read_int_field("motion_timeout", "Display time after motion", 5, 3600, &motion_timeout) ||
        !read_int_field("threshold", "Motion threshold", 1, 255, &threshold) ||
        !read_double_field("face_scale_factor", "Face: scale factor", 1.05, 2.0, &face_scale_factor) ||
        !read_int_field("face_min_neighbors", "Face: minimum neighbors", 1, 10, &face_min_neighbors) ||
@@ -419,10 +420,15 @@ static bool process_detection()
         return false;
     if(face_size_min > face_size_max)
         return fail("The minimum face size cannot exceed the maximum.");
+    //on_timeout is the ceiling on any stretch the tubes stay lit, so a longer value would be
+    //cut short without saying so
+    if(motion_timeout > on_timeout)
+        return fail("The display time after motion cannot exceed the display time.");
 
     cJSON *j = ensure_object(mJson, "detection");
     set_string(j, "model", model_copy);
     set_number(j, "on_timeout", on_timeout);
+    set_number(j, "motion_timeout", motion_timeout);
     set_number(j, "threshold", threshold);
     set_string(j, "face_cascade", face_cascade_name(cascade));
     set_number(j, "face_scale_factor", face_scale_factor);
@@ -436,7 +442,7 @@ static bool process_detection()
     cJSON_DeleteItemFromObjectCaseSensitive(j, "percentage");
     cJSON_DeleteItemFromObjectCaseSensitive(j, "maxpercent");
 
-    queue_signal("nixie", SIG_CGI_RELOAD);     //on_timeout
+    queue_signal("nixie", SIG_CGI_RELOAD);     //on_timeout, motion_timeout
     queue_signal("camera", SIG_CGI_RELOAD);    //everything else
     return true;
 }
@@ -649,6 +655,7 @@ static void print_config()
     j = cJSON_AddObjectToObject(root, "detection");
     cJSON_AddStringToObject(j, "model", model_name(camera.detection_model));
     cJSON_AddNumberToObject(j, "on_timeout", camera.on_timeout);
+    cJSON_AddNumberToObject(j, "motion_timeout", camera.motion_timeout);
     cJSON_AddNumberToObject(j, "threshold", camera.threshold);
     cJSON_AddStringToObject(j, "face_cascade", face_cascade_name(camera.faceCascade));
     cJSON_AddNumberToObject(j, "face_scale_factor", camera.faceScaleFactor);

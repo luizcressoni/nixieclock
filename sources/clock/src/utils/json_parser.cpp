@@ -143,6 +143,7 @@ void load_camera_config(sCameraConfig *_cameraconfig)
     _cameraconfig->faceSizeMin = 45;
     _cameraconfig->faceSizeMax = 200;   //the frame height: no upper limit in practice
     _cameraconfig->on_timeout = 90;
+    _cameraconfig->motion_timeout = MOTION_WAKE_SECONDS;
     _cameraconfig->fps = 15;
 
     const cJSON *jsonCamera = cJSON_GetObjectItem(config_root(), "detection");
@@ -174,6 +175,7 @@ void load_camera_config(sCameraConfig *_cameraconfig)
     read_int(jsonCamera, "face_size_min", &_cameraconfig->faceSizeMin);
     read_int(jsonCamera, "face_size_max", &_cameraconfig->faceSizeMax);
     read_int(jsonCamera, "on_timeout",    &_cameraconfig->on_timeout);
+    read_int(jsonCamera, "motion_timeout", &_cameraconfig->motion_timeout);
     read_int(jsonCamera, "fps",           &_cameraconfig->fps);
 
     //the frame loop divides by the frame rate
@@ -186,6 +188,8 @@ void load_camera_config(sCameraConfig *_cameraconfig)
         _cameraconfig->faceMinNeighbors = FACE_MIN_NEIGHBORS_DEFAULT;
     if(_cameraconfig->faceMinConsecutive < 1 || _cameraconfig->faceMinConsecutive > 10)
         _cameraconfig->faceMinConsecutive = FACE_MIN_CONSECUTIVE_DEFAULT;
+    if(_cameraconfig->motion_timeout < 5 || _cameraconfig->motion_timeout > 3600)
+        _cameraconfig->motion_timeout = MOTION_WAKE_SECONDS;
 }
 
 void load_nixie_config(sNixieConfig *_nixieconfig)
