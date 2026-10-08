@@ -8,7 +8,7 @@
     (BuildFileAddedOrDeleted "x")
     (CompileFileAddedOrDeleted "x")
     (Netlist_TAB "5")
-    (LAYOUT_Netlist_File "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.MNL")
+    (LAYOUT_Netlist_File "F:\develop\nixieclock\projeto\hardware\pcb\nixie.mnl")
     (LAYOUT_PCB_Footprint "{PCB Footprint}")
     (LAYOUT_Run_ECO "FALSE")
     (LAYOUT_Units "0")
@@ -24,19 +24,20 @@
     (NoModify))
   (Folder "Outputs"
     (File ".\nixie.mnl"
+      (Type "Report"))
+    (File ".\nixie..mnl"
       (Type "Report")))
   (Folder "Referenced Projects")
   (GlobalState
     (FileView
       (Path "Design Resources")
       (Path "Design Resources"
-         "z:\desenvolvimento\nixie_clock\hardware\nixie.dsn")
+         "F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\nixie.dsn")
       (Path "Design Resources"
-         "z:\desenvolvimento\nixie_clock\hardware\nixie.dsn" "SCHEMATIC1")
+         "F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\nixie.dsn" "SCHEMATIC1")
       (Path "Outputs")
       (Select "Design Resources"
-         "z:\desenvolvimento\nixie_clock\hardware\nixie.dsn" "SCHEMATIC1"
-         "RASPI"))
+         "F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\nixie.dsn"))
     (HierarchyView)
     (Doc
       (Type "COrCapturePMDoc")
@@ -46,90 +47,30 @@
     (Doc
       (Type "COrSchematicDoc")
       (Frame
-        (Placement "44 0 1 -1 -1 -4 -30 110 1806 145 757")
-        (Scroll "0 180")
-        (Zoom "104")
-        (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
-      (Schematic "SCHEMATIC1")
-      (Page "PWMs"))
-    (Doc
-      (Type "COrSchematicDoc")
-      (Frame
-        (Placement "44 0 1 -1 -1 -1 -1 66 1762 87 679")
-        (Scroll "0 0")
+        (Placement "44 2 1 160 633 -4 -30 66 1438 87 544")
+        (Scroll "0 425")
         (Zoom "100")
         (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
-      (Schematic "SCHEMATIC1")
-      (Page "Valvulas"))
-    (Doc
-      (Type "COrSchematicDoc")
-      (Frame
-        (Placement "44 0 1 -1 -1 -1 -1 132 1828 174 766")
-        (Scroll "0 0")
-        (Zoom "100")
-        (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
-      (Schematic "SCHEMATIC1")
-      (Page "RTC"))
-    (Doc
-      (Type "COrSchematicDoc")
-      (Frame
-        (Placement "44 0 1 -1 -1 -1 -1 154 1850 203 795")
-        (Scroll "0 0")
-        (Zoom "100")
-        (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
-      (Schematic "SCHEMATIC1")
-      (Page "RGB"))
-    (Doc
-      (Type "COrSchematicDoc")
-      (Frame
-        (Placement "44 0 1 -1 -1 -4 -30 -31 1665 186 778")
-        (Scroll "0 268")
-        (Zoom "200")
-        (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
-      (Schematic "SCHEMATIC1")
-      (Page "RASPI"))
-    (Doc
-      (Type "COrSchematicDoc")
-      (Frame
-        (Placement "44 0 1 -1 -1 -4 -30 220 1916 290 882")
-        (Scroll "0 60")
-        (Zoom "100")
-        (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
-      (Schematic "SCHEMATIC1")
-      (Page "MUX"))
-    (Doc
-      (Type "COrSchematicDoc")
-      (Frame
-        (Placement "44 0 1 -1 -1 -1 -1 176 1821 232 818")
-        (Scroll "0 0")
-        (Zoom "100")
-        (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Path "F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE.DSN")
       (Schematic "SCHEMATIC1")
       (Page "Fonte"))
     (Doc
       (Type "COrSchematicDoc")
       (Frame
-        (Placement "44 0 1 -1 -1 -1 -1 198 1843 261 847")
-        (Scroll "0 0")
+        (Placement "44 0 1 -1 -1 -1 -1 22 1460 29 660")
+        (Scroll "0 147")
         (Zoom "100")
         (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Path "F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE.DSN")
       (Schematic "SCHEMATIC1")
-      (Page "x_esp32"))
+      (Page "Valvulas"))
     (Doc
       (Type "COrSchematicDoc")
       (Frame
-        (Placement "44 0 1 -1 -1 -1 -1 220 1865 290 876")
-        (Scroll "0 0")
-        (Zoom "100")
+        (Placement "44 0 1 -1 -1 -4 -30 154 1526 203 660")
+        (Scroll "294 862")
+        (Zoom "200")
         (Occurrence "/"))
-      (Path "Z:\DESENVOLVIMENTO\NIXIE_CLOCK\HARDWARE\NIXIE.DSN")
+      (Path "F:\DEVELOP\NIXIECLOCK\PROJETO\HARDWARE\PCB\NIXIE.DSN")
       (Schematic "SCHEMATIC1")
-      (Page "x_audio"))))
+      (Page "RTC"))))
