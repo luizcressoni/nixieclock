@@ -4,6 +4,7 @@
 #include "pwm.h"
 #include "../modulation/modulation.h"
 #include <pthread.h>
+#include <mutex>
 
 
 class cRpiRgbh
@@ -17,6 +18,7 @@ class cRpiRgbh
     bool                mIsModulationMine;
     cModulation         *mpModulation;
     enuModulationType   menuModulationType;
+    std::mutex          mMutex;     //the thread reads the modulation the main thread replaces and deletes
   public:
     cRpiRgbh(PIN_NAMES _r, PIN_NAMES _g, PIN_NAMES _b);
     virtual ~cRpiRgbh();

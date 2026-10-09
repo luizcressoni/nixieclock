@@ -279,14 +279,17 @@ void cNixieHardware::SetAllOff() const {
     \param _silent If true, does not update the vu or lamps.
     \note This function sets the maximum brightness for the Nixie display and updates the vu and lamps accordingly.
     \note If _silent is true, it does not update the vu or lamps.
+    \note Silent, only the ceiling moves: the dimmer stays where it was, off if the clock is asleep.
+    \note It used to be driven to 100% as well, so the ambient light dimming or restoring the tubes
+    \note in the middle of the night lit a sleeping clock, frozen on the time it fell asleep at.
 */
 void cNixieHardware::SetMaxBrightness(uint8_t _u8max, bool _silent) const {
     glogger->debug("Setting max brightness to {:d}", _u8max);
     mNixieDimmer->SetLimits(_u8max);
-    mNixieDimmer->SetPercent(100);
     if(_silent)
         return;
 
+    mNixieDimmer->SetPercent(100);
     SetModulation(enumHardwareTypeDimmer, enuModulationTypeNone);
     SetModulation(enumHardwareTypeVu, enuModulationTypeNone);
     mNixieVu->SetPercent(100);  

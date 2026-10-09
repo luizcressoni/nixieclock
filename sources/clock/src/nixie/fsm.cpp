@@ -363,7 +363,7 @@ bool cNixieFsm::ProcessStateNetwork(int _action)
 void cNixieFsm::SetStateSleeping()
 {
     mcNixieHardware->SetVuPercent(0);
-    mcNixieHardware->SetRgb(255, 128, 127);
+    mcNixieHardware->SetRgb(SLEEP_RGB_R, SLEEP_RGB_G, SLEEP_RGB_B);
     mcNixieHardware->SetModulation(enumHardwareTypeRgb, enuModulationType::enuModulationTypeSinusoidal, 5000);
     mcNixieHardware->SetModulation(enumHardwareTypeDimmer, enuModulationType::enuModulationTypeRampOneShotDown, 2000);
     mcNixieHardware->SetModulation(enumHardwareTypeVu, enuModulationType::enuModulationTypeNone);
@@ -772,6 +772,7 @@ void cNixieFsm::SetStateRegen(uint8_t _position)
     mcNixieHardware->SetRgb(0, 0, 0);
     //full current on the tubes, ignoring the configured brightness cap, is what burns the poisoning off
     mcNixieHardware->SetMaxBrightness(100);
+    mcNixieHardware->SetDimmerPercent(100);     //coming from sleep, the dimmer is at zero
 
     glogger->debug("NixieFsm: Cathode regeneration started on tube {:d}", m_regen_position + 1);
     SetState(STATE_REGEN);
@@ -799,6 +800,7 @@ void cNixieFsm::SetStateRegenNight()
     mcNixieHardware->SetVuOff();
     mcNixieHardware->SetRgb(0, 0, 0);
     mcNixieHardware->SetMaxBrightness(gNixieConfig.brightness);
+    mcNixieHardware->SetDimmerPercent(100);     //coming from sleep, the dimmer is at zero
 
     glogger->debug("NixieFsm: Night regeneration started, {:d} sweeps on all tubes", m_regen_cycles);
     SetState(STATE_REGEN);

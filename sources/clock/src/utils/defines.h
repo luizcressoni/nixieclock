@@ -79,6 +79,11 @@
 //it did as display.
 #define AWAKE_TOUR_AFTER_SECONDS    30      //lit for more than this...
 #define AWAKE_TOUR_STEP_SECONDS     3       //...and each mode is shown this long on the way out
+//The slow reddish pulse under the tubes while the clock sleeps. It used to be 255/128/127, full
+//scale, which in a dark room lights the whole shelf; a quarter of it keeps the hue.
+#define SLEEP_RGB_R                 64
+#define SLEEP_RGB_G                 32
+#define SLEEP_RGB_B                 32
 //The tubes ramp up over three seconds when the clock wakes and down over two when it sleeps, and
 //the dimming steps them too. Seen by the camera that is a change of light, and undirected motion
 //reported during one is the clock reacting to itself: it used to wake itself straight back up

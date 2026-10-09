@@ -5,6 +5,7 @@
 #include "../modulation/modulation.h"
 #include "../../utils/ctimer.h"
 #include <pthread.h>
+#include <mutex>
 
 class cNixiePwm
 {
@@ -25,6 +26,14 @@ class cNixiePwm
 
     cTimer              mTimerOff,
                         mTimerForced;
+
+    //The PWM thread reads the modulation, and ends a one shot ramp by deleting it, while the state
+    //machine replaces it from the main thread. Unguarded, the thread could delete the ramp that had
+    //just been put in and leave the output frozen at whatever it was: tubes lit over a sleeping
+    //clock. Recursive because the public calls are made from inside one another.
+    std::recursive_mutex mMutex;
+
+    static cModulation  *NewModulation(enuModulationType _type);
   public:
     explicit cNixiePwm(PIN_NAMES _pwmpin, uint8_t _u8range=100);
     virtual ~cNixiePwm();

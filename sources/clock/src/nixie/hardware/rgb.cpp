@@ -67,6 +67,7 @@ cRpiRgbh::~cRpiRgbh()
 
 void cRpiRgbh::SetRgb(uint8_t _r, uint8_t _g, uint8_t _b)
 {
+    std::lock_guard<std::mutex> lock(mMutex);
     mu8pwm[0] = _r;
     mu8pwm[1] = _g;
     mu8pwm[2] = _b;
@@ -104,6 +105,7 @@ void cRpiRgbh::StopThread()
 
 bool cRpiRgbh::Task()
 {
+    std::lock_guard<std::mutex> lock(mMutex);
     double dvalue = 1.0;
     if(mpModulation != nullptr)
     {
@@ -123,43 +125,30 @@ bool cRpiRgbh::Task()
 
 void cRpiRgbh::SetModulator(enuModulationType _enuModulationType, cModulation *_modulation)
 {
-    menuModulationType = _enuModulationType;
-    if(_modulation == nullptr)
+    cModulation *fresh = _modulation;
+    if(fresh == nullptr)
     {
-        switch(menuModulationType)
+        switch(_enuModulationType)
         {
-            case enuModulationTypeRamp:
-                mIsModulationMine = true;
-                mpModulation = new cRamp();
-                break;
-            case enuModulationTypeSinusoidal:
-                mpModulation = new cSinusoidal();
-                mIsModulationMine = true;
-                break;
-            case enuModulationTypeFlash:
-                mpModulation = new cFlash();
-                mIsModulationMine = true;
-                break;
-            case enuModulationTypeNone:
-                if(mpModulation != nullptr && mIsModulationMine)
-                {
-                    delete mpModulation;
-                    mpModulation = nullptr;
-                    mIsModulationMine = false;
-                }
-                break;
-            default: break;
+            case enuModulationTypeRamp:         fresh = new cRamp();        break;
+            case enuModulationTypeSinusoidal:   fresh = new cSinusoidal();  break;
+            case enuModulationTypeFlash:        fresh = new cFlash();       break;
+            default:                                                        break;
         }
     }
-    else
-    {
-        mpModulation = _modulation;
-    }
+
+    std::lock_guard<std::mutex> lock(mMutex);
+    if(mIsModulationMine && mpModulation != nullptr && mpModulation != fresh)
+        delete mpModulation;
+    menuModulationType = _enuModulationType;
+    mpModulation = fresh;
+    mIsModulationMine = (fresh != nullptr && _modulation == nullptr);
 }
 
 
 void cRpiRgbh::SetModulationPeriod(uint32_t _u32period)
 {
+    std::lock_guard<std::mutex> lock(mMutex);
     if(mpModulation)
         mpModulation->SetPeriod(_u32period);
 }

@@ -41,6 +41,7 @@ void cNixiePwm::SetLimits(uint8_t _u8max)
 
 void cNixiePwm::SetLimits(uint8_t _u8min, uint8_t _u8max)
 {
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     mu8min = _u8min;
     mu8max = _u8max;
     a = (mu8max - mu8min) / 100.0;
@@ -62,6 +63,7 @@ void cNixiePwm::SetAbsoluteValue(uint8_t _u8value)
 */
 void cNixiePwm::SetPhysicalZero()
 {
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     SetModulator(enuModulationTypeNone, nullptr);
     mTimerOff.Enable(false);
     mu8percent = 0;
@@ -71,6 +73,7 @@ void cNixiePwm::SetPhysicalZero()
 
 void cNixiePwm::SetPercent(uint8_t _u8percent, uint32_t _u32timeoff)
 {
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     SetPercent(_u8percent);
     if(_u32timeoff != 0)
     {
@@ -81,6 +84,7 @@ void cNixiePwm::SetPercent(uint8_t _u8percent, uint32_t _u32timeoff)
 
 void cNixiePwm::SetPercent(uint8_t _u8percent)
 {
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     if(_u8percent > 100)
         _u8percent = 100;
     mu8percent = _u8percent;
@@ -118,6 +122,8 @@ void cNixiePwm::StopThread()
 
 bool cNixiePwm::Task()
 {
+    {
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     if(mTimerForced.IsEnabled())
     {
         if(mTimerForced.IsTimeOut())
@@ -148,6 +154,7 @@ bool cNixiePwm::Task()
         SetPercent(0);
         mTimerOff.Enable(false);
     }
+    }   //not held over the sleep below
 
     if(mu32threadsleep)
         usleep(mu32threadsleep);
@@ -156,57 +163,49 @@ bool cNixiePwm::Task()
 }
 
 
+/*! \brief Builds one of the stock modulations, fully set up
+    \note A fresh cRamp reads 0 until RampTo() is called on it. Published half built, the PWM
+    \note thread could read that 0, take a ramp down as already finished and remove it.
+*/
+cModulation *cNixiePwm::NewModulation(enuModulationType _type)
+{
+    switch(_type)
+    {
+        case enuModulationTypeRampOneShotDown:
+        case enuModulationTypeRampOneShotUp:
+        {
+            auto *ramp = new cRamp();
+            ramp->SetPeriod(2000); // 2 seconds
+            ramp->RampTo(_type == enuModulationTypeRampOneShotDown ? 0.0 : 1.0);
+            return ramp;
+        }
+        case enuModulationTypeRamp:         return new cRamp();
+        case enuModulationTypeSinusoidal:   return new cSinusoidal();
+        case enuModulationTypeFlash:        return new cFlash();
+        default:                            return nullptr;
+    }
+}
+
 void cNixiePwm::SetModulator(enuModulationType _enuModulationType, cModulation *_modulation)
 {
+    //built outside the lock: the PWM thread need not wait for an allocation
+    cModulation *fresh = (_modulation == nullptr) ? NewModulation(_enuModulationType) : _modulation;
+
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
+    //the one being replaced used to be dropped without a delete, every time a ramp started
+    if(mIsModulationMine && mpModulation != nullptr && mpModulation != fresh)
+        delete mpModulation;
     menuModulationType = _enuModulationType;
-    if(_modulation == nullptr)
-    {
-        switch(menuModulationType)
-        {
-            case enuModulationTypeRampOneShotDown:
-            case enuModulationTypeRampOneShotUp:
-                mIsModulationOneShot = true;
-                mpModulation = new cRamp();
-                mpModulation->SetPeriod(2000); // 2 seconds
-                mpModulation->RampTo(menuModulationType == enuModulationTypeRampOneShotDown?0.0:1.0);
-                mIsModulationMine = true;
-                break;
-            case enuModulationTypeRamp:
-                mpModulation = new cRamp();
-                mIsModulationMine = true;
-                break;
-            case enuModulationTypeSinusoidal:
-                mpModulation = new cSinusoidal();
-                mIsModulationMine = true;
-                break;
-            case enuModulationTypeFlash:
-                mpModulation = new cFlash();
-                mIsModulationMine = true;
-                break;
-            case enuModulationTypeNone:
-                if(mpModulation != nullptr && mIsModulationMine)
-                {
-                    delete mpModulation;
-                    mpModulation = nullptr;
-                    mIsModulationMine = false;
-                }
-                break;
-        }
-    }
-    else
-    {
-        if(mIsModulationMine && mpModulation != nullptr)
-        {
-            delete mpModulation;
-        }
-        mIsModulationMine = false;
-        mIsModulationOneShot = false;
-        mpModulation = _modulation;
-    }
+    mpModulation = fresh;
+    mIsModulationMine = (fresh != nullptr && _modulation == nullptr);
+    mIsModulationOneShot = mIsModulationMine &&
+                           (_enuModulationType == enuModulationTypeRampOneShotDown ||
+                            _enuModulationType == enuModulationTypeRampOneShotUp);
 }
 
 void cNixiePwm::SetMinimum(uint8_t _u8min, uint32_t _u32timeForced)
 {
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     SetModulator(enuModulationTypeNone, nullptr);
     SetLimits(_u8min, mu8max);
     mTimerForced.SetTimeOut(_u32timeForced);
@@ -216,6 +215,7 @@ void cNixiePwm::SetMinimum(uint8_t _u8min, uint32_t _u32timeForced)
 
 void cNixiePwm::SetMaximum(uint8_t _u8max, uint32_t _u32timeForced)
 {
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     SetModulator(enuModulationTypeNone, nullptr);
     SetLimits(mu8min, _u8max);
     mTimerForced.SetTimeOut(_u32timeForced);
@@ -226,6 +226,7 @@ void cNixiePwm::SetMaximum(uint8_t _u8max, uint32_t _u32timeForced)
 
 void cNixiePwm::SetModulationPeriod(uint32_t _u32period)
 {
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     if(mpModulation)
         mpModulation->SetPeriod(_u32period);
 }
